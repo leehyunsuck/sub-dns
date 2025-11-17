@@ -1,0 +1,223 @@
+// ============================================================
+// [TEST MODE] 백엔드 가짜 데이터 처리 (Mock API)
+// ============================================================
+
+let mockSession = null;
+
+function mockFetch(url, method, body) {
+    return new Promise((resolve) => {
+        console.log(`[Mock API] ${method} ${url}`, body);
+
+        setTimeout(() => {
+            let responseData = {};
+
+            // 1. 로그인 (POST /api/login)
+            if (url === '/api/login') {
+                if (body.pw === '1234') {
+                    mockSession = { email: body.email, name: '테스트유저' };
+                    resolve({ ok: true, json: () => Promise.resolve({ message: "성공", name: mockSession.name }) });
+                } else {
+                    resolve({ ok: false, json: () => Promise.resolve({ message: "비밀번호는 1234 입니다." }) });
+                }
+            }
+            // 2. 내 정보 (GET /api/me)
+            else if (url === '/api/me') {
+                if (mockSession) {
+                    resolve({ ok: true, json: () => Promise.resolve({ isLoggedIn: true, email: mockSession.email, name: mockSession.name }) });
+                } else {
+                    resolve({ ok: true, json: () => Promise.resolve({ isLoggedIn: false }) });
+                }
+            }
+            // 3. 도메인 검색 (GET /api/domain/search)
+            else if (url.includes('/api/domain/search')) {
+                const prefix = url.split('prefix=')[1] || 'unknown';
+                const results = [
+                    { fullDomain: `${prefix}.nulldns.top`, available: true },
+                    { fullDomain: `${prefix}.test.top`, available: false },
+                    { fullDomain: `${prefix}.game.server`, available: true }
+                ];
+                resolve({ ok: true, json: () => Promise.resolve(results) });
+            }
+            // 4. 도메인 상세 조회 (GET /api/domain/detail)
+            else if (url.includes('/api/domain/detail')) {
+                // 가짜 상세 정보 반환
+                resolve({
+                    ok: true,
+                    json: () => Promise.resolve({ domain: "test.nulldns.top", ip: "192.168.0.100", ttl: 3600 })
+                });
+            }
+            // 5. 도메인 등록/수정 (POST /api/domain/register)
+            else if (url === '/api/domain/register') {
+                resolve({ ok: true, json: () => Promise.resolve({ message: "저장되었습니다." }) });
+            }
+            // 6. 로그아웃
+            else if (url === '/api/logout') {
+                mockSession = null;
+                resolve({ ok: true, json: () => Promise.resolve({ message: "로그아웃" }) });
+            }
+            // 기타
+            else {
+                resolve({ ok: true, json: () => Promise.resolve({ message: "성공" }) });
+            }
+        }, 300); // 0.3초 딜레이
+    });
+}
+
+// ============================================================
+// [UI Logic] 실제 프론트엔드 코드
+// ============================================================
+
+let currentUser = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+    checkAuth();
+    showPage('domainSearch');
+});
+
+function showPage(page) {
+    document.querySelectorAll('main').forEach(m => m.classList.add('hidden'));
+    const target = document.getElementById(page + 'Page');
+    if (target) target.classList.remove('hidden');
+}
+
+async function sendRequest(url, method, body, btn, msgEl) {
+    if (btn) btn.disabled = true;
+    if (msgEl) { msgEl.style.color = "#333"; msgEl.textContent = "요청 중..."; }
+
+    try {
+        // ★ 테스트용 mockFetch 사용 (실제 연동시 fetch로 변경)
+        const res = await mockFetch(url, method, body);
+        const data = await res.json();
+
+        if (res.ok) {
+            if (msgEl) { msgEl.style.color = "green"; msgEl.textContent = data.message || "성공"; }
+            return { success: true, data: data };
+        } else {
+            if (msgEl) { msgEl.style.color = "red"; msgEl.textContent = data.message || "실패"; }
+            return { success: false, data: data };
+        }
+    } catch (e) {
+        console.error(e);
+        return { success: false };
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+// [1] 로그인 확인
+async function checkAuth() {
+    const result = await sendRequest('/api/me', 'GET');
+    const authSection = document.getElementById('authSection');
+
+    if (result.success && result.data.isLoggedIn) {
+        currentUser = result.data;
+        authSection.innerHTML = `
+            <span id="userMenu" onclick="showPage('profile')">${currentUser.name}님</span>
+            <a href="#" onclick="logout()" class="btn-logout">(로그아웃)</a>
+        `;
+        const emailField = document.getElementById('profileEmail');
+        if(emailField) emailField.value = currentUser.email;
+    } else {
+        currentUser = null;
+        authSection.innerHTML = `<a href="#" onclick="showPage('login')">로그인</a> <a href="#" onclick="showPage('register')">회원가입</a>`;
+    }
+}
+
+// [2] 도메인 검색
+async function searchDomain() {
+    const prefix = document.getElementById('searchInput').value.trim();
+    const resultBox = document.getElementById('searchResult');
+
+    if (!prefix) { alert("도메인 이름을 입력하세요"); return; }
+    resultBox.innerHTML = '<p style="text-align:center">검색 중...</p>';
+
+    const res = await sendRequest(`/api/domain/search?prefix=${prefix}`, 'GET');
+
+    if (res.success) {
+        let html = '';
+        res.data.forEach(item => {
+            const isAvailable = item.available;
+            const statusHtml = isAvailable ?
+                `<span class="status-ok">[사용가능]</span>` : `<span class="status-no">[사용불가]</span>`;
+
+            let btnProps = isAvailable ?
+                (currentUser ? `onclick="registerDomain('${item.fullDomain}')"` : 'disabled') : 'disabled';
+
+            let btnText = isAvailable ? (currentUser ? '등록하기' : '로그인 필요') : '등록불가';
+            let btnClass = isAvailable && currentUser ? '' : 'style="background:#aaa"'; // 비활성 색상
+
+            html += `
+            <div class="result-row">
+                <span>${item.fullDomain} ${statusHtml}</span>
+                <button class="btn-sm" ${btnClass} ${btnProps}>${btnText}</button>
+            </div>`;
+        });
+        resultBox.innerHTML = html;
+    }
+}
+
+// [3] 도메인 신규 등록 화면 진입
+function registerDomain(fullDomain) {
+    if (!currentUser) { alert("로그인이 필요합니다."); showPage('login'); return; }
+
+    document.getElementById('domainTitle').innerText = fullDomain;
+    document.getElementById('domainIp').value = '';
+    document.getElementById('domainTtl').value = '60';
+    document.getElementById('saveBtn').innerText = "등록 완료";
+
+    showPage('domainDetail');
+}
+
+// [4] 보유 도메인 상세 화면 진입
+async function openDomainDetail(domainName) {
+    const res = await sendRequest(`/api/domain/detail?domain=${domainName}`, 'GET');
+    if (res.success) {
+        document.getElementById('domainTitle').innerText = domainName;
+        document.getElementById('domainIp').value = res.data.ip;
+        document.getElementById('domainTtl').value = res.data.ttl;
+        document.getElementById('saveBtn').innerText = "수정 저장";
+        showPage('domainDetail');
+    }
+}
+
+// [5] 등록 및 수정 요청 전송
+async function submitRegistration() {
+    const domain = document.getElementById('domainTitle').innerText;
+    const ip = document.getElementById('domainIp').value.trim();
+    const ttl = document.getElementById('domainTtl').value.trim();
+
+    if (!ip) { alert("IP 주소를 입력해주세요."); return; }
+
+    const res = await sendRequest('/api/domain/register', 'POST', { domain, ip, ttl });
+    if (res.success) {
+        alert(res.data.message);
+        showPage('domainList');
+    } else {
+        alert("실패했습니다.");
+    }
+}
+
+// [6] 로그인
+async function login() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pw = document.getElementById('loginPw').value.trim();
+    if (!email || !pw) return;
+
+    const result = await sendRequest('/api/login', 'POST', { email, pw }, document.getElementById('loginBtn'), document.getElementById('loginMsg'));
+    if (result.success) {
+        await checkAuth();
+        setTimeout(() => showPage('domainSearch'), 500);
+    }
+}
+
+// [7] 로그아웃
+async function logout() {
+    await sendRequest('/api/logout', 'POST');
+    currentUser = null;
+    checkAuth();
+    showPage('login');
+}
+
+// 기타
+function register() { alert("가입 기능 테스트"); }
+function updateProfile() { alert("프로필 저장 테스트"); }

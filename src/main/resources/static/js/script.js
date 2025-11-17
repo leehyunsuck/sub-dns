@@ -1,7 +1,8 @@
 // ============================================================
-// [TEST MODE] 백엔드 가짜 데이터 처리 (Mock API)
+// [TEST MODE] 백엔드 없는 가짜 데이터 처리 (Mock API)
 // ============================================================
 
+// 브라우저 램(RAM)에 임시 저장할 가짜 세션
 let mockSession = null;
 
 function mockFetch(url, method, body) {
@@ -9,8 +10,6 @@ function mockFetch(url, method, body) {
         console.log(`[Mock API] ${method} ${url}`, body);
 
         setTimeout(() => {
-            let responseData = {};
-
             // 1. 로그인 (POST /api/login)
             if (url === '/api/login') {
                 if (body.pw === '1234') {
@@ -38,17 +37,21 @@ function mockFetch(url, method, body) {
                 ];
                 resolve({ ok: true, json: () => Promise.resolve(results) });
             }
-            // 4. 도메인 상세 조회 (GET /api/domain/detail)
+                // 4. 도메인 상세 조회 (GET /api/domain/detail)
+            // ★ 여기가 핵심: 목록에서 클릭 시 이 데이터를 반환함
             else if (url.includes('/api/domain/detail')) {
-                // 가짜 상세 정보 반환
                 resolve({
                     ok: true,
-                    json: () => Promise.resolve({ domain: "test.nulldns.top", ip: "192.168.0.100", ttl: 3600 })
+                    json: () => Promise.resolve({
+                        domain: "test.nulldns.top",
+                        ip: "192.168.0.100",
+                        ttl: 3600
+                    })
                 });
             }
             // 5. 도메인 등록/수정 (POST /api/domain/register)
             else if (url === '/api/domain/register') {
-                resolve({ ok: true, json: () => Promise.resolve({ message: "저장되었습니다." }) });
+                resolve({ ok: true, json: () => Promise.resolve({ message: "성공적으로 저장되었습니다." }) });
             }
             // 6. 로그아웃
             else if (url === '/api/logout') {
@@ -59,9 +62,11 @@ function mockFetch(url, method, body) {
             else {
                 resolve({ ok: true, json: () => Promise.resolve({ message: "성공" }) });
             }
-        }, 300); // 0.3초 딜레이
+
+        }, 300); // 0.3초 로딩 딜레이
     });
 }
+
 
 // ============================================================
 // [UI Logic] 실제 프론트엔드 코드
@@ -80,13 +85,13 @@ function showPage(page) {
     if (target) target.classList.remove('hidden');
 }
 
+// 요청 헬퍼
 async function sendRequest(url, method, body, btn, msgEl) {
     if (btn) btn.disabled = true;
     if (msgEl) { msgEl.style.color = "#333"; msgEl.textContent = "요청 중..."; }
 
     try {
-        // ★ 테스트용 mockFetch 사용 (실제 연동시 fetch로 변경)
-        const res = await mockFetch(url, method, body);
+        const res = await mockFetch(url, method, body); // 테스트용 mockFetch 사용
         const data = await res.json();
 
         if (res.ok) {
@@ -144,7 +149,7 @@ async function searchDomain() {
                 (currentUser ? `onclick="registerDomain('${item.fullDomain}')"` : 'disabled') : 'disabled';
 
             let btnText = isAvailable ? (currentUser ? '등록하기' : '로그인 필요') : '등록불가';
-            let btnClass = isAvailable && currentUser ? '' : 'style="background:#aaa"'; // 비활성 색상
+            let btnClass = isAvailable && currentUser ? '' : 'style="background:#aaa"';
 
             html += `
             <div class="result-row">
@@ -156,31 +161,39 @@ async function searchDomain() {
     }
 }
 
-// [3] 도메인 신규 등록 화면 진입
+// [3] 도메인 신규 등록 화면 열기
 function registerDomain(fullDomain) {
     if (!currentUser) { alert("로그인이 필요합니다."); showPage('login'); return; }
 
     document.getElementById('domainTitle').innerText = fullDomain;
     document.getElementById('domainIp').value = '';
     document.getElementById('domainTtl').value = '60';
-    document.getElementById('saveBtn').innerText = "등록 완료";
+    document.getElementById('saveBtn').innerText = "등록 완료"; // 버튼 글씨
 
     showPage('domainDetail');
 }
 
-// [4] 보유 도메인 상세 화면 진입
+// [4] ★ 보유 도메인 상세(수정) 화면 열기 ★
 async function openDomainDetail(domainName) {
+    // 기존 alert 함수가 사라졌으므로 이 로직이 정상 실행됩니다.
     const res = await sendRequest(`/api/domain/detail?domain=${domainName}`, 'GET');
+
     if (res.success) {
+        // 데이터를 화면에 채워넣음
         document.getElementById('domainTitle').innerText = domainName;
         document.getElementById('domainIp').value = res.data.ip;
         document.getElementById('domainTtl').value = res.data.ttl;
+
+        // 버튼 글씨를 '수정 저장'으로 변경
         document.getElementById('saveBtn').innerText = "수정 저장";
+
         showPage('domainDetail');
+    } else {
+        alert("상세 정보를 불러오지 못했습니다.");
     }
 }
 
-// [5] 등록 및 수정 요청 전송
+// [5] 등록 및 수정 저장 요청
 async function submitRegistration() {
     const domain = document.getElementById('domainTitle').innerText;
     const ip = document.getElementById('domainIp').value.trim();
@@ -191,7 +204,7 @@ async function submitRegistration() {
     const res = await sendRequest('/api/domain/register', 'POST', { domain, ip, ttl });
     if (res.success) {
         alert(res.data.message);
-        showPage('domainList');
+        showPage('domainList'); // 저장 후 목록으로 이동
     } else {
         alert("실패했습니다.");
     }
@@ -218,6 +231,6 @@ async function logout() {
     showPage('login');
 }
 
-// 기타
+// 기타 기능
 function register() { alert("가입 기능 테스트"); }
 function updateProfile() { alert("프로필 저장 테스트"); }

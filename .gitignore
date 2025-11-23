@@ -5,7 +5,11 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
+# properties
 /src/main/resources/application*
+
+# test
+/src/main/java/top/nulldns/subdns/test/*
 
 ### STS ###
 .apt_generated

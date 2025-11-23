@@ -44,7 +44,8 @@ function mockFetch(url, method, body) {
                     ok: true,
                     json: () => Promise.resolve({
                         domain: "test.nulldns.top",
-                        ip: "192.168.0.100",
+                        type: "A", 
+                        value: "192.168.0.100",
                         ttl: 3600
                     })
                 });
@@ -166,14 +167,20 @@ function registerDomain(fullDomain) {
     if (!currentUser) { alert("로그인이 필요합니다."); showPage('login'); return; }
 
     document.getElementById('domainTitle').innerText = fullDomain;
-    document.getElementById('domainIp').value = '';
-    document.getElementById('domainTtl').value = '60';
+    document.getElementById('recordValue').value = '';
     document.getElementById('saveBtn').innerText = "등록 완료"; // 버튼 글씨
 
     showPage('domainDetail');
 }
 
 // [4] ★ 보유 도메인 상세(수정) 화면 열기 ★
+/* API 응답 형식 (GET /api/domain/detail?domain=...):
+ * {
+ *   "domain": "test.nulldns.top",
+ *   "type": "A",
+ *   "value": "192.168.0.100"
+ * }
+ */
 async function openDomainDetail(domainName) {
     // 기존 alert 함수가 사라졌으므로 이 로직이 정상 실행됩니다.
     const res = await sendRequest(`/api/domain/detail?domain=${domainName}`, 'GET');
@@ -181,34 +188,20 @@ async function openDomainDetail(domainName) {
     if (res.success) {
         // 데이터를 화면에 채워넣음
         document.getElementById('domainTitle').innerText = domainName;
-        document.getElementById('domainIp').value = res.data.ip;
-        document.getElementById('domainTtl').value = res.data.ttl;
+        document.getElementById('recordType').value = res.data.type;
+        document.getElementById('recordValue').value = res.data.value;
 
         // 버튼 글씨를 '수정 저장'으로 변경
         document.getElementById('saveBtn').innerText = "수정 저장";
-
+        
+        updateInputFields(); // 필드에 맞는 플레이스홀더 업데이트
         showPage('domainDetail');
     } else {
         alert("상세 정보를 불러오지 못했습니다.");
     }
 }
 
-// [5] 등록 및 수정 저장 요청
-async function submitRegistration() {
-    const domain = document.getElementById('domainTitle').innerText;
-    const ip = document.getElementById('domainIp').value.trim();
-    const ttl = document.getElementById('domainTtl').value.trim();
 
-    if (!ip) { alert("IP 주소를 입력해주세요."); return; }
-
-    const res = await sendRequest('/api/domain/register', 'POST', { domain, ip, ttl });
-    if (res.success) {
-        alert(res.data.message);
-        showPage('domainList'); // 저장 후 목록으로 이동
-    } else {
-        alert("실패했습니다.");
-    }
-}
 
 // [6] 로그인
 async function login() {
@@ -234,3 +227,58 @@ async function logout() {
 // 기타 기능
 function register() { alert("가입 기능 테스트"); }
 function updateProfile() { alert("프로필 저장 테스트"); }
+
+// 타입 선택 시 입력 필드 업데이트
+function updateInputFields() {
+    const type = document.getElementById('recordType').value;
+    const input = document.getElementById('recordValue');
+    input.value = ''; // 타입 변경 시 값 초기화
+
+    switch(type) {
+        case 'A':
+            input.placeholder = '예: 192.168.1.1';
+            input.disabled = false;
+            break;
+        case 'AAAA':
+            input.placeholder = '예: 2001:0db8:85a3:0000:0000:8a2e:0370:7334';
+            input.disabled = false;
+            break;
+        case 'CNAME':
+            input.placeholder = '예: example.com';
+            input.disabled = false;
+            break;
+        case 'TXT':
+            input.placeholder = '예: verification=abcd1234';
+            input.disabled = false;
+            break;
+    }
+}
+
+// 초기 로드 시 A 레코드 활성화
+document.addEventListener('DOMContentLoaded', () => {
+    updateInputFields();
+});
+
+// submitRegistration() 수정: 타입과 값 포함
+/* API 요청 형식 (POST /api/domain/register):
+ * {
+ *   "domain": "test.nulldns.top",
+ *   "type": "A",
+ *   "value": "192.168.0.100"
+ * }
+ */
+async function submitRegistration() {
+    const domain = document.getElementById('domainTitle').innerText;
+    const type = document.getElementById('recordType').value;
+    const value = document.getElementById('recordValue').value.trim();
+
+    if (!value) { alert(`${type} 값 입력해주세요.`); return; }
+
+    const res = await sendRequest('/api/domain/register', 'POST', { domain, type, value, ttl: 60 });
+    if (res.success) {
+        alert(res.data.message);
+        showPage('domainList'); // 저장 후 목록으로 이동
+    } else {
+        alert("실패했습니다.");
+    }
+}

@@ -22,8 +22,10 @@ main { max-width: 600px; margin: 3rem auto; background: #fff; padding: 2rem; bor
 h2 { margin-bottom: 1rem; }
 
 /* === 입력 폼 및 버튼 === */
-input, button { width: 100%; padding: 0.8rem; margin-top: 0.5rem; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; }
+input, button, select { width: 100%; padding: 0.8rem; margin-top: 0.5rem; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; }
 input { margin-bottom: 0.5rem; } /* 입력창 간격 */
+
+input:disabled { background-color: #e9ecef; cursor: not-allowed; }
 
 /* 기본 파란 버튼 */
 button { background: #007bff; color: #fff; border: none; cursor: pointer; font-weight: 600; margin-top: 1rem; }

@@ -1,83 +1,92 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NullDNS</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
+
 <body>
-<header>
-  <h1>NullDNS</h1>
-  <nav>
-    <a href="#" onclick="showPage('domainSearch')">도메인 검색</a>
-    <a href="#" onclick="showPage('domainList')">도메인 관리</a>
+  <header>
+    <h1>NullDNS</h1>
+    <nav>
+      <a href="#" onclick="showPage('domainSearch')">도메인 검색</a>
+      <a href="#" onclick="showPage('domainList')">도메인 관리</a>
 
-    <span id="authSection" class="auth-area"></span>
-  </nav>
-</header>
+      <span id="authSection" class="auth-area"></span>
+    </nav>
+  </header>
 
-<main id="domainSearchPage">
-  <h2>도메인 검색</h2>
-  <input type="text" id="searchInput" placeholder="원하는 이름만 입력 (예: myserver)">
-  <button onclick="searchDomain()">검색</button>
-  <div id="searchResult" class="list"></div>
-</main>
+  <main id="domainSearchPage">
+    <h2>도메인 검색</h2>
+    <input type="text" id="searchInput" placeholder="원하는 이름만 입력 (예: myserver)">
+    <button onclick="searchDomain()">검색</button>
+    <div id="searchResult" class="list"></div>
+  </main>
 
-<main id="domainListPage" class="hidden">
-  <h2>보유 도메인 목록</h2>
-  <div class="list" id="domainList">
-    <div class="item" onclick="openDomainDetail('test.nulldns.top')">test.nulldns.top</div>
-    <div class="item" onclick="openDomainDetail('myapp.nulldns.top')">myapp.nulldns.top</div>
-  </div>
-</main>
+  <main id="domainListPage" class="hidden">
+    <h2>보유 도메인 목록</h2>
+    <div class="list" id="domainList">
+      <div class="item" onclick="openDomainDetail('test.nulldns.top')">test.nulldns.top</div>
+      <div class="item" onclick="openDomainDetail('myapp.nulldns.top')">myapp.nulldns.top</div>
+    </div>
+  </main>
 
-<main id="domainDetailPage" class="hidden">
-  <h2 id="domainTitle"></h2>
-  <div class="form-group">
-    <label>A 레코드 (IP 주소)</label>
-    <input type="text" id="domainIp" placeholder="예: 192.168.1.1">
-  </div>
-  <div class="form-group">
-    <label>TTL (초)</label>
-    <input type="text" id="domainTtl" placeholder="기본값: 60">
-  </div>
+  <main id="domainDetailPage" class="hidden">
+    <h2 id="domainTitle"></h2>
+    <div class="form-group">
+      <label>레코드 타입</label>
+      <select id="recordType" onchange="updateInputFields()">
+        <option value="A">A (IPv4 주소)</option>
+        <option value="AAAA">AAAA (IPv6 주소)</option>
+        <option value="CNAME">CNAME (별칭)</option>
+        <option value="TXT">TXT (텍스트)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>값</label>
+      <input type="text" id="recordValue" placeholder="예: 192.168.1.1">
+    </div>
 
-  <button id="saveBtn" onclick="submitRegistration()">등록 완료</button>
-  <button class="btn-cancel" onclick="showPage('domainList')">취소</button>
-</main>
+    <button id="saveBtn" onclick="submitRegistration()">등록 완료</button> <button class="btn-cancel"
+      onclick="showPage('domainList')">취소</button>
+  </main>
 
-<main id="accountPage" class="hidden">
-  <h2>계정 관리</h2>
-  <button onclick="showPage('profile')">회원정보 수정</button>
-</main>
 
-<main id="loginPage" class="hidden">
-  <h2>로그인</h2>
-  <input type="text" id="loginEmail" placeholder="이메일">
-  <input type="password" id="loginPw" placeholder="비밀번호">
-  <button id="loginBtn" onclick="login()">로그인</button>
-  <p class="msg" id="loginMsg"></p>
-</main>
+  <main id="accountPage" class="hidden">
+    <h2>계정 관리</h2>
+    <button onclick="showPage('profile')">회원정보 수정</button>
+  </main>
 
-<main id="registerPage" class="hidden">
-  <h2>회원가입</h2>
-  <input type="text" id="regEmail" placeholder="이메일">
-  <input type="password" id="regPw" placeholder="비밀번호">
-  <input type="password" id="regPw2" placeholder="비밀번호 확인">
-  <button id="registerBtn" onclick="register()">가입하기</button>
-  <p class="msg" id="registerMsg"></p>
-</main>
+  <main id="loginPage" class="hidden">
+    <h2>로그인</h2>
+    <input type="text" id="loginEmail" placeholder="이메일">
+    <input type="password" id="loginPw" placeholder="비밀번호">
+    <button id="loginBtn" onclick="login()">로그인</button>
+    <p class="msg" id="loginMsg"></p>
+  </main>
 
-<main id="profilePage" class="hidden">
-  <h2>회원정보 수정</h2>
-  <input type="text" id="profileEmail" placeholder="이메일" disabled>
-  <input type="password" id="profilePw" placeholder="새 비밀번호">
-  <input type="password" id="profilePw2" placeholder="비밀번호 확인">
-  <button id="profileBtn" onclick="updateProfile()">저장</button>
-  <p class="msg" id="profileMsg"></p>
-</main>
+  <main id="registerPage" class="hidden">
+    <h2>회원가입</h2>
+    <input type="text" id="regEmail" placeholder="이메일">
+    <input type="password" id="regPw" placeholder="비밀번호">
+    <input type="password" id="regPw2" placeholder="비밀번호 확인">
+    <button id="registerBtn" onclick="register()">가입하기</button>
+    <p class="msg" id="registerMsg"></p>
+  </main>
 
-<script src="/js/script.js"></script>
+  <main id="profilePage" class="hidden">
+    <h2>회원정보 수정</h2>
+    <input type="text" id="profileEmail" placeholder="이메일" disabled>
+    <input type="password" id="profilePw" placeholder="새 비밀번호">
+    <input type="password" id="profilePw2" placeholder="비밀번호 확인">
+    <button id="profileBtn" onclick="updateProfile()">저장</button>
+    <p class="msg" id="profileMsg"></p>
+  </main>
+
+  <script src="/js/script.js"></script>
 </body>
+
 </html>

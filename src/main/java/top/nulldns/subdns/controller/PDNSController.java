@@ -18,4 +18,9 @@ public class PDNSController {
     public ResponseEntity<List<PDNSDto.ZoneName>> listZoneName() {
         return ResponseEntity.ok(pdnsService.getZoneNameList());
     }
+
+    @GetMapping("/api/get/search")
+    public ResponseEntity<List<PDNSDto.SearchResult>> listSearchResult(String domain) {
+        return ResponseEntity.ok(pdnsService.searchResultList(domain));
+    }
 }

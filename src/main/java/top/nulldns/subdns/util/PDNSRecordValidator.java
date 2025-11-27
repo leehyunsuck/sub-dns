@@ -29,8 +29,9 @@ public class PDNSRecordValidator {
             "dashboard", "config", "manage", "billing", "payment", "secure",
             "wpad", "autodiscover", "isatap", "local", "localhost",
             "noreply", "abuse", "support", "helpdesk", "ssl", "cert", ".well-known",
-            "google", "naver", "kakao", "aws", "azure", "apple", "microsoft"
+            "google", "naver", "kakao", "aws", "azure", "apple", "microsoft", "help"
     );
+
     private static final Set<String> CONTAINS_BLOCK_WORDS = Set.of(
             "admin", "administrator", "root", "system", "sysadmin",
             "master", "webmaster", "hostmaster", "postmaster",

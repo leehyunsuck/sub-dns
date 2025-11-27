@@ -26,16 +26,14 @@ public class PDNSService {
     }
 
     public List<PDNSDto.ZoneName> getZoneNameList() {
-        List<PDNSDto.ZoneName> zones = restClient.get()
+        return restClient.get()
                 .uri("zones")
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<PDNSDto.ZoneName>>() {});
-
-        return zones == null ? Collections.emptyList() : zones;
     }
 
     public List<PDNSDto.SearchResult> searchResultList(String fullDomain) {
-        List<PDNSDto.SearchResult> results = restClient.get()
+        return restClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/search-data")
                         .queryParam("q", fullDomain)  // 혹은 서브도메인만
@@ -43,8 +41,6 @@ public class PDNSService {
                         .build())
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<PDNSDto.SearchResult>>() {});
-
-        return results == null ? Collections.emptyList() : results;
     }
 
     public ResponseEntity<Void> addRecord(String zone, String subDomain, String type, String content) {

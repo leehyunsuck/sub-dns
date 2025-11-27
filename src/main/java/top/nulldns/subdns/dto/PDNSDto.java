@@ -42,7 +42,21 @@ public class PDNSDto {
 
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public  static  class ZoneName {
-        private String  name;
+    public static class ZoneName {
+        private String name;
+    }
+
+    @Data
+    @Builder
+    public static class CanAddSubDomainZones {
+        private String subDomain;
+        private List<ZoneAddCapability> zones;
+    }
+
+    @Data
+    @Builder
+    public static class ZoneAddCapability {
+        private String name;
+        private boolean canAdd;
     }
 }

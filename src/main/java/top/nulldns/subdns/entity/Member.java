@@ -21,9 +21,13 @@ public class Member {
     @Column(nullable = false)
     private String providerId; // "12345678"
 
+    @Column(nullable = false)
+    private int maxRecords;
+
     @Builder
     public Member(String provider, String providerId) {
         this.provider = provider;
         this.providerId = providerId;
+        this.maxRecords = 10;
     }
 }

@@ -8,4 +8,5 @@ import java.util.Optional;
 
 public interface HaveSubDomainRepository extends JpaRepository<HaveSubDomain, Long> {
     List<HaveSubDomain> findByMemberId(Long memberId);
+    Optional<HaveSubDomain> findByMemberIdAndFullDomain(Long memberId, String fullDomain);
 }

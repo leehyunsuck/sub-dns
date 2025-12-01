@@ -1,0 +1,17 @@
+<h2 id="domainTitle"></h2>
+<div class="form-group">
+  <label>레코드 타입</label>
+  <select id="recordType" onchange="onRecordTypeChange()">
+    <option value="A">A (IPv4 주소)</option>
+    <option value="AAAA">AAAA (IPv6 주소)</option>
+    <option value="CNAME">CNAME (별칭)</option>
+    <option value="TXT">TXT (텍스트)</option>
+  </select>
+</div>
+<div class="form-group">
+  <label>값</label>
+  <input type="text" id="recordValue" placeholder="예: 192.168.1.1">
+</div>
+
+<button id="saveBtn" onclick="submitRegistration()">등록 완료</button>
+<button class="btn-cancel" onclick="showPage('domainList')">취소</button>

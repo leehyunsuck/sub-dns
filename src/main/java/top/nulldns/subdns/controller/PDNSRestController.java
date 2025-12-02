@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import top.nulldns.subdns.dto.PDNSDto;
+import top.nulldns.subdns.dto.ResultMessageDTO;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.service.PDNSService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
@@ -35,7 +36,12 @@ public class PDNSRestController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        return ResponseEntity.ok(pdnsService.searchResultList(fullDomain));
+        ResultMessageDTO<List<PDNSDto.SearchResult>> searchResult = pdnsService.searchResultList(fullDomain);
+        if (!searchResult.isPass()) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+
+        return ResponseEntity.ok(searchResult.getData());
     }
 
     @GetMapping("/available-domains/{subDomain}")
@@ -53,7 +59,7 @@ public class PDNSRestController {
             String  zoneName = zone.getName(),
                     fullDomain = subDomain + "." + zoneName;
 
-            boolean canAdd = isBlockedDomain ? false : pdnsService.searchResultList(fullDomain).isEmpty();
+            boolean canAdd = isBlockedDomain ? false : pdnsService.searchResultList(fullDomain).getData().isEmpty();
 
             canAddSubDomainZones.getZones().add(
                     PDNSDto.ZoneAddCapability.builder()

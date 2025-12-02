@@ -4,9 +4,11 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Getter
+@Getter @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(uniqueConstraints = {
+@Table(
+        name = "member",
+        uniqueConstraints = {
         @UniqueConstraint(columnNames = {"provider", "providerId"})
 })
 public class Member {

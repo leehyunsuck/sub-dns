@@ -7,19 +7,20 @@ import lombok.Data;
 
 import java.util.List;
 
+// ---------- 리팩토링 필요 -> subDoamin ,zoneName, fullDomain 을 다 name으로 만들어버렸음 (현재는 혼동 주의)
 public class PDNSDto {
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SearchResult {
-        private String  name,       // 도메인 이름
-                        type,       // 레코드 타입
-                        content;    // 레코드 타입에 맞는 내용
+        private String  name,       // full Domain
+                        type,
+                        content;
     }
 
     @Data
     @Builder
     public static class Rrset {
-        private String  name,
+        private String  name,   // fullDomain
                         type;
 
         @Builder.Default
@@ -43,7 +44,7 @@ public class PDNSDto {
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ZoneName {
-        private String name;
+        private String name;    // zone domain
     }
 
     @Data
@@ -56,7 +57,7 @@ public class PDNSDto {
     @Data
     @Builder
     public static class ZoneAddCapability {
-        private String name;
+        private String name;    // zone domain
         private boolean canAdd;
     }
 }

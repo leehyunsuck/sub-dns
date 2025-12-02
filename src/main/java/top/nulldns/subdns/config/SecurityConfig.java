@@ -32,7 +32,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
-                        .defaultSuccessUrl("/", true) // 로그인 성공 시 메인으로
+                        .defaultSuccessUrl("/login-success", true) // 로그인 성공 시 메인으로
                 );
 
         return http.build();

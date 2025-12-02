@@ -14,7 +14,7 @@ public class PDNSRecordValidator {
             "^(?!-)(?!.*--)[A-Za-z0-9-]{1,63}(?<!-)(\\.[A-Za-z0-9-]{1,63})*\\.?$"
     );
     private static final Pattern LABEL_PATTERN = Pattern.compile(
-            "^(?!-)(?!.*--)[A-Za-z0-9-]{1,63}(?<!-)$"
+            "^(?!-)(?!.*--)[A-Za-z0-9-]{4,63}(?<!-)$"
     );
     private static final Set<String> VALID_TYPES = Set.of(
             "A", "AAAA", "CNAME", "TXT"
@@ -39,6 +39,8 @@ public class PDNSRecordValidator {
     );
 
     public static boolean isValidType(String type) {
+        type = type.toUpperCase();
+
         if (type == null || type.isEmpty()) return false;
 
         return VALID_TYPES.contains(type);
@@ -47,11 +49,7 @@ public class PDNSRecordValidator {
     public static boolean isValidLabel(String label) {
         if (label == null || label.isEmpty()) return false;
 
-        label = label.toLowerCase();
-        if (label.length() > 63) return false;
-        if (label.length() < 4) return false;
         if (EXACT_BLOCK_WORDS.contains(label)) return false;
-
         for (String banWord : CONTAINS_BLOCK_WORDS) {
             if (label.contains(banWord)) return false;
         }

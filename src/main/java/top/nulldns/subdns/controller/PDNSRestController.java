@@ -7,12 +7,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import top.nulldns.subdns.dto.PDNSDto;
 import top.nulldns.subdns.dto.ResultMessageDTO;
+import top.nulldns.subdns.entity.HaveSubDomain;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.service.PDNSService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,6 +26,42 @@ public class PDNSRestController {
 
     private boolean isLoggedIn(HttpSession session) {
         return session.getAttribute("memberId") != null && session.getAttribute("id") != null;
+    }
+
+    @GetMapping("/my-domains")
+    public ResponseEntity<List<PDNSDto.HaveDomain>> myDomains(HttpSession session) {
+        if (!isLoggedIn(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<PDNSDto.HaveDomain> haveDomains = new ArrayList<>();
+
+        try {
+            List<HaveSubDomain> haveSubDomainList = haveSubDomainRepository.findByMemberId((Long) session.getAttribute("memberId"));
+            if (haveSubDomainList.isEmpty()) {
+                throw new NoSuchElementException();
+            }
+
+            for (HaveSubDomain haveSubDomain : haveSubDomainList) {
+                String[] split = haveSubDomain.getFullDomain().split("\\.", 2);
+
+                String subDomain = split[0],
+                       zone  = split[1];
+
+                haveDomains.add(
+                        PDNSDto.HaveDomain.builder()
+                                .subDomain(subDomain)
+                                .zone(zone)
+                                .build()
+                );
+            }
+
+            return ResponseEntity.ok(haveDomains);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping("/get-records/{fullDomain}")
@@ -70,6 +108,20 @@ public class PDNSRestController {
         }
 
         return ResponseEntity.ok(canAddSubDomainZones);
+    }
+
+    @PostMapping("/add-record")
+    public ResponseEntity<String> addRecord(@RequestBody PDNSDto.AddRecordRequest request, HttpSession session) {
+        if (!isLoggedIn(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        ResultMessageDTO<Void> result = pdnsService.addRecord(request.getSubDomain(), request.getZone(), request.getType(), request.getContent(), session);
+        if (result.isPass()) {
+            return ResponseEntity.status(HttpStatus.CREATED).build();
+        }
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result.getMessage());
     }
 }
 

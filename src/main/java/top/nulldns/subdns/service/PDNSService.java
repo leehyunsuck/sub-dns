@@ -94,14 +94,14 @@ public class PDNSService {
 
     /**
      * 레코드 추가
-     * @param zone      nulldns.top, example.com 등
      * @param subDomain example, www 등
+     * @param zone      nulldns.top, example.com 등
      * @param type      A, CNAME, TXT 등
      * @param content   레코드 값
      * @param session   HttpSession
      * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
-    public ResultMessageDTO<Void> addRecord(String zone, String subDomain, String type, String content, HttpSession session) {
+    public ResultMessageDTO<Void> addRecord(String subDomain, String zone, String type, String content, HttpSession session) {
         // 최대 레코드 수 체크
         Long memberId = (Long) session.getAttribute("memberId");
         Member member = null;
@@ -152,8 +152,9 @@ public class PDNSService {
             }
 
             // PowerDNS 등록
-            if (!modifyRecord(zone, subDomain, type, content, "REPLACE").isPass()) {
-                throw new Exception("서브 도메인 등록 실패 " + subDomain + "." + zone + " " + type + " " + content);
+            ResultMessageDTO<Void> pdnsResult = modifyRecord(zone, subDomain, type, content, "REPLACE");
+            if (!pdnsResult.isPass()) {
+                throw new Exception(pdnsResult.getMessage());
             }
 
             // DB 등록
@@ -175,7 +176,7 @@ public class PDNSService {
             }
         } catch (Exception e) {
             log.error("레코드 등록 중 에러 발생", e);
-            return ResultMessageDTO.<Void>builder().pass(false).message("레코드 등록 중 에러 발생").build();
+            return ResultMessageDTO.<Void>builder().pass(false).message(e.getMessage()).build();
         }
     }
 
@@ -283,6 +284,23 @@ public class PDNSService {
             if (!PDNSRecordValidator.validate(type, content)) { // type 별 content 유효성 체크
                 return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 content").build();
             }
+
+            if (type.equals("TXT")) {
+                if (content.charAt(0) != '"') {
+                    content = "\"" + content;
+                }
+                if (content.charAt(content.length() - 1) != '"') {
+                    content = content + "\"";
+                }
+            }
+
+            if (type.equals("CNAME")) {
+                // CNAME 은 반드시 . 으로 끝나야 함
+                if (content.charAt(content.length() - 1) != '.') {
+                    content = content + ".";
+                }
+            }
+
             record = PDNSDto.Record.builder()
                     .content(content)
                     .build();
@@ -311,6 +329,7 @@ public class PDNSService {
 
             return ResultMessageDTO.<Void>builder().pass(true).build();
         } catch (Exception e) {
+            log.error(e.getMessage());
             return ResultMessageDTO.<Void>builder().pass(false).message("PowerDNS API 통신 중 에러 발생").build();
         }
     }

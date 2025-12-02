@@ -14,11 +14,15 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import top.nulldns.subdns.dto.PDNSDto;
+import top.nulldns.subdns.entity.HaveSubDomain;
+import top.nulldns.subdns.entity.Member;
+import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.repository.MemberRepository;
 import top.nulldns.subdns.util.PDNSRecordValidator;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
@@ -26,16 +30,15 @@ import java.util.List;
 public class PDNSService {
 
     private final MemberRepository memberRepository;
+    private final HaveSubDomainRepository haveSubDomainRepository;
     private final RestClient.Builder restClientBuilder;
 
     @Value("${pdns.url}")
     private String pdnsUrl;
-
     @Value("${pdns.api-key}")
     private String pdnsApiKey;
-
     private RestClient restClient;
-
+    
     @Getter
     private List<PDNSDto.ZoneName> cachedZoneNames;
 
@@ -66,11 +69,31 @@ public class PDNSService {
                 .body(new ParameterizedTypeReference<List<PDNSDto.SearchResult>>() {});
     }
 
+    /**
+     * 레코드 추가
+     * @param zone      nulldns.top, example.com 등
+     * @param subDomain example, www 등
+     * @param type      A, CNAME, TXT 등
+     * @param content   레코드 값
+     * @param session   HttpSession
+     * @return ResponseEntity<Void> 성공 여부
+     */
     public ResponseEntity<Void> addRecord(String zone, String subDomain, String type, String content, HttpSession session) {
+        // 최대 레코드 수 체크
+        Long memberId = (Long) session.getAttribute("memberId");
+        Member member = memberRepository.findById(memberId).orElseThrow();
+
+        int maxRecords = member.getMaxRecords(),
+            currentRecords = haveSubDomainRepository.countByMemberId(memberId);
+        if (currentRecords >= maxRecords) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // CNAME 을 등록하거나, 등록되어있는데 다른 타입을 등록하면 기존 레코드 삭제
         boolean exitsCNAME = false;
-
-        if (type.equalsIgnoreCase("CNAME")) exitsCNAME = true;
-
+        if (type.equalsIgnoreCase("CNAME")) {
+            exitsCNAME = true;
+        }
         List<PDNSDto.SearchResult> existingRecords = searchResultList(subDomain + "." + zone);
         for (PDNSDto.SearchResult record : existingRecords) {
             if (record.getType().equalsIgnoreCase("CNAME")) {
@@ -80,36 +103,57 @@ public class PDNSService {
         }
 
         try {
-            if (exitsCNAME && deleteAllSubRecords(zone, subDomain).getStatusCode().isError()) {
+            if (exitsCNAME && deleteAllSubRecords(zone, subDomain, session).getStatusCode().isError()) {
                 return ResponseEntity.internalServerError().build();
             }
 
-            // 최대 레코드 개수 체크 필요 --------------------------------------
+            // PowerDNS 등록
+            if (modifyRecord(zone, subDomain, type, content, "REPLACE").getStatusCode().isError()) {
+                throw new Exception("Failed to add record: " + subDomain + "." + zone + " " + type + " " + content);
+            }
 
-            return modifyRecord(zone, subDomain, type, content, "REPLACE");
+            // DB 등록
+            try {
+                HaveSubDomain haveSubDomain = HaveSubDomain.builder()
+                        .member(member)
+                        .fullDomain(subDomain + "." +  zone)
+                        .recordType(type)
+                        .content(content)
+                        .build();
+                haveSubDomainRepository.save(haveSubDomain);
+
+                return ResponseEntity.ok().build();
+            } catch (Exception e) {
+                // DB 등록 실패 시 PowerDNS에서 삭제
+                log.error("DB 등록 중 에러 발생, PowerDNS에서 레코드 삭제 시도", e);
+                deleteRecord(zone, subDomain, type, session);
+                throw new Exception("저장 실패한 레코드 정보 : " + subDomain + "." + zone + " " + type + " " + content, e);
+            }
         } catch (Exception e) {
-            log.error("Error adding record", e);
+            log.error("레코드 등록 중 에러 발생", e);
             return ResponseEntity.internalServerError().build();
         }
     }
 
-    private ResponseEntity<Void> deleteAllSubRecords(String zone, String subDomain) {
+    /**
+     * 특정 서브 도메인의 모든 타입 제거
+     * @param zone          nulldns.top, example.com 등
+     * @param subDomain     example, www 등
+     * @param session       HttpSession
+     * @return ResponseEntity<Void> 성공 여부
+     */
+    private ResponseEntity<Void> deleteAllSubRecords(String zone, String subDomain, HttpSession session) {
         List<PDNSDto.SearchResult> records = searchResultList(subDomain + "." + zone);
-
-        try {
-            for (PDNSDto.SearchResult record : records) {
-                if (deleteRecord(zone, subDomain, record.getType()).getStatusCode().isError()) {
-                    throw new Exception("Failed to delete record: " + record);
-                }
+        for (PDNSDto.SearchResult record : records) {
+            ResponseEntity<Void> result = deleteRecord(zone, subDomain, record.getType(), session);
+            if (result.getStatusCode().isError()) {
+                return result;
             }
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            // 일부 데이터만 삭제하다 멈춘 경우를 대비하여
-            // 기존 데이터 다시 덮어쓰기
-            e.printStackTrace();
-            return ResponseEntity.badRequest().build();
         }
+
+        return ResponseEntity.ok().build();
     }
+
 
     /**
      * 레코드 삭제
@@ -118,12 +162,36 @@ public class PDNSService {
      * @param type          A, CNAME, TXT 등
      * @return ResponseEntity<Void> 성공 여부
      */
-    public ResponseEntity<Void> deleteRecord(String zone, String subDomain, String type) {
+    public ResponseEntity<Void> deleteRecord(String zone, String subDomain, String type, HttpSession session) {
+        Member member = memberRepository.findById((Long) session.getAttribute("memberId")).orElseThrow();
+        String content = null;
+
         try {
-            return modifyRecord(zone, subDomain, type, null, "DELETE");
+            modifyRecord(zone, subDomain, type, null, "DELETE");
         } catch (Exception e) {
-            log.warn("레코드 삭제중 에러 발생", e);
-            return ResponseEntity.badRequest().build();
+            log.error("PowerDNS에서 레코드 삭제 중 에러 발생", e);
+            return ResponseEntity.internalServerError().build();
+        }
+
+        try {
+            HaveSubDomain haveSubDomain = haveSubDomainRepository.findByMemberIdAndFullDomain(member.getId(), subDomain + "." + zone).orElseThrow();
+            content = haveSubDomain.getContent();
+            haveSubDomainRepository.delete(haveSubDomain);
+
+            return ResponseEntity.ok().build();
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("DB에서 레코드 삭제 중 에러 발생", e);
+            log.error("삭제한 PowerDNS 레코드 복구 시도");
+            try {
+                addRecord(zone, subDomain, type, content, session);
+                log.error("삭제한 레코드 복구 완료");
+            } catch (Exception ex) {
+                log.error("[!] 확인 필요 [!]");
+                log.error("DB에서 레코드 삭제 중 에러로 인한 레코드 복구 도중 에러 발생", ex);
+            }
+            return ResponseEntity.internalServerError().build();
         }
     }
 
@@ -200,7 +268,6 @@ public class PDNSService {
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<PDNSDto.ZoneName>>() {});
         } catch (Exception e) {
-            log.error("Zone name 조회 중 에러 발생", e);
             return this.cachedZoneNames;
         }
 

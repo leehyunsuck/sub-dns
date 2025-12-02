@@ -21,7 +21,7 @@ public class AuthController {
 
         Member member = authService.loginOrSignup(provider, providerId);
         session.setAttribute("id", member.getProvider() + member.getProviderId());
-        session.setAttribute("privateId", member.getId());
+        session.setAttribute("memberId", member.getId());
 
         return "redirect:/";
     }

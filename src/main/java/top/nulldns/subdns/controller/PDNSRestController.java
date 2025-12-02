@@ -6,8 +6,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import top.nulldns.subdns.dto.PDNSDto;
-import top.nulldns.subdns.entity.HaveSubDomain;
-import top.nulldns.subdns.entity.Member;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.service.PDNSService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
@@ -24,7 +22,7 @@ public class PDNSRestController {
     private final HaveSubDomainRepository haveSubDomainRepository;
 
     private boolean isLoggedIn(HttpSession session) {
-        return session.getAttribute("privateId") != null;
+        return session.getAttribute("memberId") != null && session.getAttribute("id") != null;
     }
 
     @GetMapping("/get-records/{fullDomain}")
@@ -33,7 +31,7 @@ public class PDNSRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        if (haveSubDomainRepository.findByMemberIdAndFullDomain((Long) session.getAttribute("privateId"), fullDomain).isEmpty()) {
+        if (haveSubDomainRepository.findByMemberIdAndFullDomain((Long) session.getAttribute("memberId"), fullDomain).isEmpty()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

@@ -59,7 +59,7 @@ public class PDNSRestController {
             String  zoneName = zone.getName(),
                     fullDomain = subDomain + "." + zoneName;
 
-            boolean canAdd = isBlockedDomain ? false : pdnsService.searchResultList(fullDomain).getData().isEmpty();
+            boolean canAdd = !isBlockedDomain && pdnsService.searchResultList(fullDomain).getData().isEmpty();
 
             canAddSubDomainZones.getZones().add(
                     PDNSDto.ZoneAddCapability.builder()
@@ -72,11 +72,4 @@ public class PDNSRestController {
         return ResponseEntity.ok(canAddSubDomainZones);
     }
 }
-
-/*
-@GetMapping("/users/{id}")
-public User getUser(@PathVariable Long id) {
-    // id 변수에 URL의 {id} 값이 들어감
-}
- */
 

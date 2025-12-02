@@ -1,284 +1,270 @@
-// ============================================================
-// [TEST MODE] 백엔드 없는 가짜 데이터 처리 (Mock API)
-// ============================================================
-
-// 브라우저 램(RAM)에 임시 저장할 가짜 세션
-let mockSession = null;
-
-function mockFetch(url, method, body) {
-    return new Promise((resolve) => {
-        console.log(`[Mock API] ${method} ${url}`, body);
-
-        setTimeout(() => {
-            // 1. 로그인 (POST /api/login)
-            if (url === '/api/login') {
-                if (body.pw === '1234') {
-                    mockSession = { email: body.email, name: '테스트유저' };
-                    resolve({ ok: true, json: () => Promise.resolve({ message: "성공", name: mockSession.name }) });
-                } else {
-                    resolve({ ok: false, json: () => Promise.resolve({ message: "비밀번호는 1234 입니다." }) });
-                }
-            }
-            // 2. 내 정보 (GET /api/me)
-            else if (url === '/api/me') {
-                if (mockSession) {
-                    resolve({ ok: true, json: () => Promise.resolve({ isLoggedIn: true, email: mockSession.email, name: mockSession.name }) });
-                } else {
-                    resolve({ ok: true, json: () => Promise.resolve({ isLoggedIn: false }) });
-                }
-            }
-            // 3. 도메인 검색 (GET /api/domain/search)
-            else if (url.includes('/api/domain/search')) {
-                const prefix = url.split('prefix=')[1] || 'unknown';
-                const results = [
-                    { fullDomain: `${prefix}.nulldns.top`, available: true },
-                    { fullDomain: `${prefix}.test.top`, available: false },
-                    { fullDomain: `${prefix}.game.server`, available: true }
-                ];
-                resolve({ ok: true, json: () => Promise.resolve(results) });
-            }
-                // 4. 도메인 상세 조회 (GET /api/domain/detail)
-            // ★ 여기가 핵심: 목록에서 클릭 시 이 데이터를 반환함
-            else if (url.includes('/api/domain/detail')) {
-                resolve({
-                    ok: true,
-                    json: () => Promise.resolve({
-                        domain: "test.nulldns.top",
-                        type: "A", 
-                        value: "192.168.0.100",
-                        ttl: 3600
-                    })
-                });
-            }
-            // 5. 도메인 등록/수정 (POST /api/domain/register)
-            else if (url === '/api/domain/register') {
-                resolve({ ok: true, json: () => Promise.resolve({ message: "성공적으로 저장되었습니다." }) });
-            }
-            // 6. 로그아웃
-            else if (url === '/api/logout') {
-                mockSession = null;
-                resolve({ ok: true, json: () => Promise.resolve({ message: "로그아웃" }) });
-            }
-            // 기타
-            else {
-                resolve({ ok: true, json: () => Promise.resolve({ message: "성공" }) });
-            }
-
-        }, 300); // 0.3초 로딩 딜레이
-    });
-}
-
-
-// ============================================================
-// [UI Logic] 실제 프론트엔드 코드
-// ============================================================
-
-let currentUser = null;
-
-document.addEventListener('DOMContentLoaded', () => {
-    checkAuth();
-    showPage('domainSearch');
-});
-
-function showPage(page) {
-    document.querySelectorAll('main').forEach(m => m.classList.add('hidden'));
-    const target = document.getElementById(page + 'Page');
-    if (target) target.classList.remove('hidden');
-}
-
-// 요청 헬퍼
-async function sendRequest(url, method, body, btn, msgEl) {
-    if (btn) btn.disabled = true;
-    if (msgEl) { msgEl.style.color = "#333"; msgEl.textContent = "요청 중..."; }
-
-    try {
-        const res = await mockFetch(url, method, body); // 테스트용 mockFetch 사용
-        const data = await res.json();
-
-        if (res.ok) {
-            if (msgEl) { msgEl.style.color = "green"; msgEl.textContent = data.message || "성공"; }
-            return { success: true, data: data };
-        } else {
-            if (msgEl) { msgEl.style.color = "red"; msgEl.textContent = data.message || "실패"; }
-            return { success: false, data: data };
-        }
-    } catch (e) {
-        console.error(e);
-        return { success: false };
-    } finally {
-        if (btn) btn.disabled = false;
+// 페이지 조각 변경
+async function loadPage(page) {
+  try {
+    const response = await fetch(`/pages/${page}.html`);
+    if (!response.ok) {
+      document.getElementById('content').innerHTML = `<p>오류: 페이지를 찾을 수 없습니다.</p>`;
+      return;
     }
-}
+    const html = await response.text();
+    document.getElementById('content').innerHTML = html;
 
-// [1] 로그인 확인
-async function checkAuth() {
-    const result = await sendRequest('/api/me', 'GET');
-    const authSection = document.getElementById('authSection');
-
-    if (result.success && result.data.isLoggedIn) {
-        currentUser = result.data;
-        authSection.innerHTML = `
-            <span id="userMenu" onclick="showPage('profile')">${currentUser.name}님</span>
-            <a href="#" onclick="logout()" class="btn-logout">(로그아웃)</a>
-        `;
-        const emailField = document.getElementById('profileEmail');
-        if(emailField) emailField.value = currentUser.email;
-    } else {
-        currentUser = null;
-        authSection.innerHTML = `<a href="#" onclick="showPage('login')">로그인</a> <a href="#" onclick="showPage('register')">회원가입</a>`;
+    // 콘텐츠 로드 후 페이지별 로직 실행
+    if (page === 'domainList') {
+      loadUserDomains();
     }
+    // 'profile' 페이지 관련 로직 제거됨
+  } catch (error) {
+    console.error(`페이지 로드 중 오류 발생: ${page}:`, error);
+    document.getElementById('content').innerHTML = `<p>페이지 로드 중 오류 발생. 자세한 내용은 콘솔을 참조하세요.</p>`;
+  }
 }
 
-// [2] 도메인 검색
+// 도메인 검색
 async function searchDomain() {
-    const prefix = document.getElementById('searchInput').value.trim();
-    const resultBox = document.getElementById('searchResult');
+  const query = document.getElementById('searchInput').value.trim();
+  const resultDiv = document.getElementById('searchResult');
 
-    if (!prefix) { alert("도메인 이름을 입력하세요"); return; }
-    resultBox.innerHTML = '<p style="text-align:center">검색 중...</p>';
+  if (!query) {
+    resultDiv.innerHTML = '<p>검색할 도메인 이름을 입력해주세요.</p>';
+    return;
+  }
 
-    const res = await sendRequest(`/api/domain/search?prefix=${prefix}`, 'GET');
+  try {
+    const response = await fetch(`/api/available-domains/${query}`);
+    const result = await response.json();
+    /*
+      result 형태:
+      {
+        "subDomain": "example",
+        "zoneNames": [
+            {"name": "nulldns.top", "canAdd": true/false},
+            {"name": "anotherdomain.com", "canAdd": true/false}
+        ]
+      }
+    */
+    console.log('available-domains response:', result);
 
-    if (res.success) {
-        let html = '';
-        res.data.forEach(item => {
-            const isAvailable = item.available;
-            const statusHtml = isAvailable ?
-                `<span class="status-ok">[사용가능]</span>` : `<span class="status-no">[사용불가]</span>`;
-
-            let btnProps = isAvailable ?
-                (currentUser ? `onclick="registerDomain('${item.fullDomain}')"` : 'disabled') : 'disabled';
-
-            let btnText = isAvailable ? (currentUser ? '등록하기' : '로그인 필요') : '등록불가';
-            let btnClass = isAvailable && currentUser ? '' : 'style="background:#aaa"';
-
-            html += `
-            <div class="result-row">
-                <span>${item.fullDomain} ${statusHtml}</span>
-                <button class="btn-sm" ${btnClass} ${btnProps}>${btnText}</button>
-            </div>`;
-        });
-        resultBox.innerHTML = html;
+    let auth = false;
+    const authResponse = await fetch('/api/me');
+    if (authResponse.ok) {
+        auth = true;
     }
-}
 
-// [3] 도메인 신규 등록 화면 열기
-function registerDomain(fullDomain) {
-    if (!currentUser) { alert("로그인이 필요합니다."); showPage('login'); return; }
+    let html = '';
+    for (const zone of result.zones) {
 
-    document.getElementById('domainTitle').innerText = fullDomain;
-    document.getElementById('recordValue').value = '';
-    document.getElementById('saveBtn').innerText = "등록 완료"; // 버튼 글씨
+      const fullDomain = `${query}.${zone.name}`;
 
-    showPage('domainDetail');
-}
-
-// [4] ★ 보유 도메인 상세(수정) 화면 열기 ★
-/* API 응답 형식 (GET /api/domain/detail?domain=...):
- * {
- *   "domain": "test.nulldns.top",
- *   "type": "A",
- *   "value": "192.168.0.100"
- * }
- */
-async function openDomainDetail(domainName) {
-    // 기존 alert 함수가 사라졌으므로 이 로직이 정상 실행됩니다.
-    const res = await sendRequest(`/api/domain/detail?domain=${domainName}`, 'GET');
-
-    if (res.success) {
-        // 데이터를 화면에 채워넣음
-        document.getElementById('domainTitle').innerText = domainName;
-        document.getElementById('recordType').value = res.data.type;
-        document.getElementById('recordValue').value = res.data.value;
-
-        // 버튼 글씨를 '수정 저장'으로 변경
-        document.getElementById('saveBtn').innerText = "수정 저장";
-        
-        updateInputFields(); // 필드에 맞는 플레이스홀더 업데이트
-        showPage('domainDetail');
-    } else {
-        alert("상세 정보를 불러오지 못했습니다.");
+      if (zone.canAdd) {
+        html += `
+          <div class="item status-ok" ${auth ? `onclick="openDomainDetail('${fullDomain}', true)"` : ''}>
+            ${fullDomain} 사용 가능 합니다. ${auth ? '[클릭하여 등록 가능]' : '[로그인 후 등록 가능]'}
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="item status-no">
+            ${fullDomain} 는 이미 등록되었거나 제한된 도메인 입니다.
+          </div>
+        `;
+      }
     }
+
+    resultDiv.innerHTML = html;
+
+  } catch (error) {
+    console.error('도메인 검색 중 오류 발생:', error);
+    resultDiv.innerHTML = '<p>도메인 검색 중 오류 발생</p>';
+  }
 }
 
+let recordMap = {};
+async function openDomainDetail(fullDomain, isNew) {
+  await loadPage('domainDetail');
+  document.getElementById('domainTitle').innerText = fullDomain;
 
-
-// [6] 로그인
-async function login() {
-    const email = document.getElementById('loginEmail').value.trim();
-    const pw = document.getElementById('loginPw').value.trim();
-    if (!email || !pw) return;
-
-    const result = await sendRequest('/api/login', 'POST', { email, pw }, document.getElementById('loginBtn'), document.getElementById('loginMsg'));
-    if (result.success) {
-        await checkAuth();
-        setTimeout(() => showPage('domainSearch'), 500);
-    }
-}
-
-// [7] 로그아웃
-async function logout() {
-    await sendRequest('/api/logout', 'POST');
-    currentUser = null;
-    checkAuth();
-    showPage('login');
-}
-
-// 기타 기능
-function register() { alert("가입 기능 테스트"); }
-function updateProfile() { alert("프로필 저장 테스트"); }
-
-// 타입 선택 시 입력 필드 업데이트
-function updateInputFields() {
-    const type = document.getElementById('recordType').value;
-    const input = document.getElementById('recordValue');
-    input.value = ''; // 타입 변경 시 값 초기화
-
-    switch(type) {
-        case 'A':
-            input.placeholder = '예: 192.168.1.1';
-            input.disabled = false;
-            break;
-        case 'AAAA':
-            input.placeholder = '예: 2001:0db8:85a3:0000:0000:8a2e:0370:7334';
-            input.disabled = false;
-            break;
-        case 'CNAME':
-            input.placeholder = '예: example.com';
-            input.disabled = false;
-            break;
-        case 'TXT':
-            input.placeholder = '예: verification=abcd1234';
-            input.disabled = false;
-            break;
-    }
-}
-
-// 초기 로드 시 A 레코드 활성화
-document.addEventListener('DOMContentLoaded', () => {
+  if (isNew) {
+    recordMap = {};
     updateInputFields();
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/get-records/${fullDomain}`);
+    if (response.status == 401) {
+        alert("로그인이 필요합니다.");
+        loadPage('auth');
+        return;
+    }
+
+    if (response.status == 403) {
+        alert("해당 도메인에 대한 접근 권한이 없습니다.");
+        loadPage('domainList');
+        return;
+    }
+
+    if (!response.ok) {
+      console.warn("기존 레코드 없음. 새로 생성 가능.");
+      recordMap = {};
+      updateInputFields();
+      return;
+    }
+
+    const recordList = await response.json();
+    console.log("기존 레코드 불러오기:", recordList);
+    /*
+      recordList 형태:
+      [
+        { type: "A", content: "1.1.1.1" },
+        { type: "TXT", content: "something..." }
+      ]
+    */
+
+    recordMap = {};
+    for (const record of recordList) {
+      recordMap[record.type] = record.content;
+    }
+
+    applyRecordToInput();
+    updateInputFields();
+  } catch (err) {
+    console.error("레코드 불러오기 오류:", err);
+  }
+}
+
+// 레코드 타입 변경 시
+function onRecordTypeChange() {
+  applyRecordToInput();
+  updateInputFields();
+}
+
+// 현재 선택된 타입의 기존 값 적용
+function applyRecordToInput() {
+  const recordType = document.getElementById('recordType').value;
+  const recordValueInput = document.getElementById('recordValue');
+
+  if (recordMap[recordType]) {
+    recordValueInput.value = recordMap[recordType];
+  } else {
+    recordValueInput.value = "";
+  }
+}
+
+// placeholder 처리
+function updateInputFields() {
+  const recordType = document.getElementById('recordType').value;
+  const recordValueInput = document.getElementById('recordValue');
+
+  const placeholders = {
+    'A': '예: 192.168.1.1',
+    'AAAA': '예: 2001:db8::1',
+    'CNAME': '예: example.com',
+    'TXT': '예: "v=spf1 include:_spf.google.com ~all"'
+  };
+
+  recordValueInput.placeholder = placeholders[recordType] || '값을 입력하세요.';
+}
+
+// 로그인 상태 확인
+async function checkAuth() {
+  const authSection = document.getElementById('authSection');
+  try {
+    const response = await fetch('/api/me', { credentials: 'include' });
+    if (response.ok) {
+      const idDto = await response.json();
+      authSection.innerHTML = `
+        <span>${ idDto.id || '사용자'}님</span>
+        <a href="#" onclick="logout()">로그아웃</a>
+      `;
+    } else {
+      authSection.innerHTML = `<a href="#" onclick="loadPage('auth')">로그인</a>`;
+    }
+  } catch (error) {
+    console.error('인증 상태 확인 중 오류 발생:', error);
+    authSection.innerHTML = `<a href="#" onclick="loadPage('auth')">로그인</a>`;
+  }
+}
+
+function logout() {
+  fetch('/logout', { method: 'POST' })
+      .then(() => {
+        window.location.reload();
+      })
+      .catch(error => console.error('로그아웃 실패:', error));
+}
+
+function loginWithGitHub() {
+  window.location.href = "/oauth2/authorization/github";
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+  loadPage('domainSearch');
 });
 
-// submitRegistration() 수정: 타입과 값 포함
-/* API 요청 형식 (POST /api/domain/register):
- * {
- *   "domain": "test.nulldns.top",
- *   "type": "A",
- *   "value": "192.168.0.100"
- * }
+// =================== 하단은 AI 작성 (나에 맞게 수정 전) ===============================
+
+// 도메인 제거도 필요
+
+
+/**
+ * 사용자가 소유한 도메인 목록을 가져와 표시합니다.
+ */
+async function loadUserDomains() {
+  const listDiv = document.getElementById('domainList');
+  if (!listDiv) return;
+
+  try {
+    // 사용자 도메인을 가져오는 API 엔드포인트
+    const response = await fetch('/api/pdns/list');
+    if (!response.ok) throw new Error('도메인 목록 로드에 실패했습니다.');
+    
+    const domains = await response.json();
+    if (domains.length > 0) {
+      listDiv.innerHTML = domains.map(d => 
+        `<div class="item" onclick="openDomainDetail('${d.subDomain}')">${d.subDomain}.nulldns.top</div>`
+      ).join('');
+    } else {
+      listDiv.innerHTML = '<p>보유한 도메인이 없습니다. 도메인을 검색하여 추가해보세요.</p>';
+    }
+  } catch (error) {
+    console.error('사용자 도메인 로드 중 오류 발생:', error);
+    listDiv.innerHTML = '<p>도메인 목록을 불러오는 중 오류가 발생했습니다.</p>';
+  }
+}
+
+/**
+ * 새 도메인 또는 업데이트된 도메인 레코드를 백엔드에 제출합니다.
  */
 async function submitRegistration() {
-    const domain = document.getElementById('domainTitle').innerText;
-    const type = document.getElementById('recordType').value;
-    const value = document.getElementById('recordValue').value.trim();
+  const type = document.getElementById('recordType').value;
+  const content = document.getElementById('recordValue').value.trim();
 
-    if (!value) { alert(`${type} 값 입력해주세요.`); return; }
+  if (!currentDomain || !type || !content) {
+    alert('레코드 타입과 값을 모두 입력해주세요.');
+    return;
+  }
+  
+  try {
+    // 레코드를 생성 또는 업데이트하는 API 엔드포인트
+    const response = await fetch('/api/pdns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subDomain: currentDomain, type, content }),
+    });
 
-    const res = await sendRequest('/api/domain/register', 'POST', { domain, type, value, ttl: 60 });
-    if (res.success) {
-        alert(res.data.message);
-        showPage('domainList'); // 저장 후 목록으로 이동
+    if (response.ok) {
+      alert('도메인 정보가 성공적으로 업데이트되었습니다.');
+      loadPage('domainList');
     } else {
-        alert("실패했습니다.");
+      const errorData = await response.json();
+      alert(`오류: ${errorData.message || '알 수 없는 오류가 발생했습니다.'}`);
     }
+  } catch (error) {
+    console.error('도메인 등록 제출 중 오류 발생:', error);
+    alert('도메인 등록/수정 중 오류가 발생했습니다.');
+  }
 }
+
+

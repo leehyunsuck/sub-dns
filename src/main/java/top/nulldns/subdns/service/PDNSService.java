@@ -48,15 +48,33 @@ public class PDNSService {
                 .defaultHeader("X-API-Key", pdnsApiKey)
                 .build();
 
-        this.cachedZoneNames = getZoneNameList();
+        ResultMessageDTO<List<PDNSDto.ZoneName>> result = getZoneNameList();
+        if (result.isPass()) {
+            this.cachedZoneNames = getZoneNameList().getData();
+        } else {
+            log.error("초기 Zone Name 목록 갱신 중 에러 발생: " + result.getMessage());
+            this.cachedZoneNames = new ArrayList<>();
+            cachedZoneNames.add(PDNSDto.ZoneName.builder().name("nulldns.top").build());
+        }
+
     }
 
     @Scheduled(cron = "0 0 0 * * ?")
     public void sheduledRefresh() {
-        this.cachedZoneNames = this.getZoneNameList();
+        ResultMessageDTO<List<PDNSDto.ZoneName>> result = getZoneNameList();
+        if (result.isPass()) {
+            this.cachedZoneNames = result.getData();
+        } else {
+            log.error("Zone Name 목록 갱신 중 에러 발생: " + result.getMessage());
+        }
     }
 
 
+    /**
+     * 특정 풀 도메인(서브 + 존) 레코드 검색 (모든 타입)
+     * @param fullDomain example.nulldns.top, www.example.com 등
+     * @return ResultMessageDTO<List<PDNSDto.SearchResult>> {boolean pass, String message, T data}
+     */
     public ResultMessageDTO<List<PDNSDto.SearchResult>> searchResultList(String fullDomain) {
         try {
             List<PDNSDto.SearchResult> result = restClient.get()
@@ -81,7 +99,7 @@ public class PDNSService {
      * @param type      A, CNAME, TXT 등
      * @param content   레코드 값
      * @param session   HttpSession
-     * @return ResultMessageDTO {boolean pass, String message}
+     * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
     public ResultMessageDTO<Void> addRecord(String zone, String subDomain, String type, String content, HttpSession session) {
         // 최대 레코드 수 체크
@@ -166,7 +184,7 @@ public class PDNSService {
      * @param zone          nulldns.top, example.com 등
      * @param subDomain     example, www 등
      * @param session       HttpSession
-     * @return ResultMessageDTO {boolean pass, String message}
+     * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
     private ResultMessageDTO<Void> deleteAllSubRecords(String zone, String subDomain, HttpSession session) {
         ResultMessageDTO<List<PDNSDto.SearchResult>> searchResultDTO = searchResultList(subDomain + "." + zone);
@@ -191,7 +209,7 @@ public class PDNSService {
      * @param zone          nulldns.top, example.com 등
      * @param subDomain     example, www 등
      * @param type          A, CNAME, TXT 등
-     * @return ResultMessageDTO {boolean pass, String message}
+     * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
     public ResultMessageDTO<Void> deleteRecord(String zone, String subDomain, String type, HttpSession session) {
         Member member;
@@ -237,7 +255,7 @@ public class PDNSService {
      * @param type          A, CNAME, TXT 등
      * @param content       레코드 값 (삭제 시 null)
      * @param action        REPLACE / DELETE
-     * @return ResultMessageDTO {boolean pass, String message}
+     * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
     private ResultMessageDTO<Void> modifyRecord(String zone, String subDomain, String type, String content, String action) {
         if (zone.isEmpty() || subDomain.isEmpty() || type.isEmpty() || action.isEmpty()) {
@@ -301,7 +319,7 @@ public class PDNSService {
      * Zone Name 목록 반환
      * @return List<PDNSDto.ZoneName> {name}
      */
-    private List<PDNSDto.ZoneName> getZoneNameList() {
+    private ResultMessageDTO<List<PDNSDto.ZoneName>> getZoneNameList() {
         List<PDNSDto.ZoneName> zones = new ArrayList<>();
         try {
             zones = restClient.get()
@@ -309,7 +327,7 @@ public class PDNSService {
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<PDNSDto.ZoneName>>() {});
         } catch (Exception e) {
-            return this.cachedZoneNames;
+            return ResultMessageDTO.<List<PDNSDto.ZoneName>>builder().pass(false).message("PowerDNS API 통신 중 에러 발생").build();
         }
 
         // PowerDNS API에서 Zone 정보 가져오면 마지막 문자가 . 으로 끝남
@@ -320,6 +338,6 @@ public class PDNSService {
             }
         }
 
-        return zones;
+        return ResultMessageDTO.<List<PDNSDto.ZoneName>>builder().pass(true).data(zones).build();
     }
 }

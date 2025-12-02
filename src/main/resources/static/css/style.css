@@ -27,9 +27,9 @@ input { margin-bottom: 0.5rem; } /* 입력창 간격 */
 
 input:disabled { background-color: #e9ecef; cursor: not-allowed; }
 
-/* 기본 파란 버튼 */
-button { background: #007bff; color: #fff; border: none; cursor: pointer; font-weight: 600; margin-top: 1rem; }
-button:hover:not(:disabled) { background: #0056d2; }
+/* 기본 버튼 */
+button { background: #ff9f00; color: #fff; border: none; cursor: pointer; font-weight: 600; margin-top: 1rem; }
+button:hover:not(:disabled) { background: #ff7f00; }
 button:disabled { background: #aaa; cursor: not-allowed; }
 
 /* 취소 버튼 (회색) */
@@ -58,3 +58,19 @@ button:disabled { background: #aaa; cursor: not-allowed; }
 
 /* 메시지 텍스트 */
 p.msg { text-align: center; margin-top: 1rem; font-weight: 500; }
+
+/* auth.html GitHub 버튼 */
+#githubLoginBtn {
+  background-color: #333;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 5px;
+}
+#githubLoginBtn:hover {
+  background-color: #555;
+}

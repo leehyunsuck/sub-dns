@@ -42,6 +42,7 @@ public class PDNSDto {
     }
 
     @Data
+    @Builder
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ZoneName {
         private String name;    // zone domain

@@ -1,7 +1,7 @@
 package top.nulldns.subdns.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import top.nulldns.subdns.entity.Member;
+import top.nulldns.subdns.dao.Member;
 
 import java.util.Optional;
 

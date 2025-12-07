@@ -3,7 +3,7 @@ package top.nulldns.subdns.service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import top.nulldns.subdns.entity.Member;
+import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.repository.MemberRepository;
 
 @Service

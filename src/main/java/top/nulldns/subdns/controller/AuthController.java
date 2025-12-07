@@ -6,7 +6,7 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import top.nulldns.subdns.entity.Member;
+import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.service.AuthService;
 
 @Controller

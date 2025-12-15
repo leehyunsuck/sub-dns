@@ -1,3 +1,7 @@
+let recordMap = {};
+let selectedDomain = '';
+let selectedZone = '';
+
 // 페이지 조각 변경
 async function loadPage(page) {
   try {
@@ -22,17 +26,22 @@ async function loadPage(page) {
 
 // 도메인 검색
 async function searchDomain() {
-  const query = document.getElementById('searchInput').value.trim();
+  const subDomain = document.getElementById('searchInput').value.trim();
   const resultDiv = document.getElementById('searchResult');
 
-  if (!query) {
+  if (!subDomain) {
     resultDiv.innerHTML = '<p>검색할 도메인 이름을 입력해주세요.</p>';
     return;
   }
 
   try {
-    const response = await fetch(`/api/available-domains/${query}`);
+    const response = await fetch(`/api/available-domains/${subDomain}`);
     const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message);
+    }
+
     /*
       result 형태:
       {
@@ -43,7 +52,6 @@ async function searchDomain() {
         ]
       }
     */
-    console.log('available-domains response:', result);
 
     let auth = false;
     const authResponse = await fetch('/api/me');
@@ -53,12 +61,11 @@ async function searchDomain() {
 
     let html = '';
     for (const zone of result.zones) {
-
-      const fullDomain = `${query}.${zone.name}`;
+      const fullDomain = `${subDomain}.${zone.name}`;
 
       if (zone.canAdd) {
         html += `
-          <div class="item status-ok" ${auth ? `onclick="openDomainDetail('${fullDomain}', true)"` : ''}>
+          <div class="item status-ok" ${auth ? `onclick="openDomainDetail('${subDomain}', '${zone.name}', true)"` : ''}>
             ${fullDomain} 사용 가능 합니다. ${auth ? '[클릭하여 등록 가능]' : '[로그인 후 등록 가능]'}
           </div>
         `;
@@ -78,17 +85,21 @@ async function searchDomain() {
     resultDiv.innerHTML = '<p>도메인 검색 중 오류 발생</p>';
   }
 }
-
-let recordMap = {};
-async function openDomainDetail(fullDomain, isNew) {
+async function openDomainDetail(subDomain, zone, isNew) {
+  console.log(`도메인 상세 열기: ${subDomain}.${zone}, isNew: ${isNew}`);
   await loadPage('domainDetail');
-  document.getElementById('domainTitle').innerText = fullDomain;
+  document.getElementById('domainTitle').innerText = subDomain + '.' + zone;
+
+  selectedDomain = subDomain;
+  selectedZone = zone;
 
   if (isNew) {
     recordMap = {};
     updateInputFields();
     return;
   }
+
+  const fullDomain = `${subDomain}.${zone}`;
 
   try {
     const response = await fetch(`/api/get-records/${fullDomain}`);
@@ -105,21 +116,13 @@ async function openDomainDetail(fullDomain, isNew) {
     }
 
     if (!response.ok) {
-      console.warn("기존 레코드 없음. 새로 생성 가능.");
       recordMap = {};
       updateInputFields();
       return;
     }
 
     const recordList = await response.json();
-    console.log("기존 레코드 불러오기:", recordList);
-    /*
-      recordList 형태:
-      [
-        { type: "A", content: "1.1.1.1" },
-        { type: "TXT", content: "something..." }
-      ]
-    */
+    console.log(recordList);
 
     recordMap = {};
     for (const record of recordList) {
@@ -203,27 +206,38 @@ document.addEventListener('DOMContentLoaded', () => {
   loadPage('domainSearch');
 });
 
-// =================== 하단은 AI 작성 (나에 맞게 수정 전) ===============================
-
-// 도메인 제거도 필요
-
-
-/**
- * 사용자가 소유한 도메인 목록을 가져와 표시합니다.
- */
+// 도메인 불러오기
 async function loadUserDomains() {
   const listDiv = document.getElementById('domainList');
   if (!listDiv) return;
 
   try {
     // 사용자 도메인을 가져오는 API 엔드포인트
-    const response = await fetch('/api/pdns/list');
-    if (!response.ok) throw new Error('도메인 목록 로드에 실패했습니다.');
-    
+    const response = await fetch('/api/my-domains');
+
+    const statusCode = response.status;
+    if (statusCode === 401) {
+        listDiv.innerHTML = '<p>로그인이 필요합니다. <a href="#" onclick="loadPage(\'auth\')">로그인 페이지로 이동</a></p>';
+        return;
+    }
+    if (statusCode === 404) {
+        listDiv.innerHTML = '<p>보유한 도메인이 없습니다.</p>';
+        return;
+    }
+    if (!response.ok) {
+        listDiv.innerHTML = '<p>서버 오류가 발생했습니다. 나중에 다시 시도해주세요.</p>';
+        return;
+    }
+
     const domains = await response.json();
+
     if (domains.length > 0) {
-      listDiv.innerHTML = domains.map(d => 
-        `<div class="item" onclick="openDomainDetail('${d.subDomain}')">${d.subDomain}.nulldns.top</div>`
+      listDiv.innerHTML = domains.map(haveDomain =>
+        `
+        <div class="item" onclick="openDomainDetail('${haveDomain.subDomain}', '${haveDomain.zone}', false)">
+            ${haveDomain.subDomain}.${haveDomain.zone}
+        </div>
+        `
       ).join('');
     } else {
       listDiv.innerHTML = '<p>보유한 도메인이 없습니다. 도메인을 검색하여 추가해보세요.</p>';
@@ -234,24 +248,22 @@ async function loadUserDomains() {
   }
 }
 
-/**
- * 새 도메인 또는 업데이트된 도메인 레코드를 백엔드에 제출합니다.
- */
+// 도메인 등록/수정 제출
 async function submitRegistration() {
   const type = document.getElementById('recordType').value;
   const content = document.getElementById('recordValue').value.trim();
 
-  if (!currentDomain || !type || !content) {
+  if (!selectedZone || !selectedDomain || !type || !content) {
     alert('레코드 타입과 값을 모두 입력해주세요.');
     return;
   }
   
   try {
     // 레코드를 생성 또는 업데이트하는 API 엔드포인트
-    const response = await fetch('/api/pdns', {
+    const response = await fetch('/api/add-record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subDomain: currentDomain, type, content }),
+      body: JSON.stringify({ subDomain: selectedDomain, zone: selectedZone, type: type, content: content }),
     });
 
     if (response.ok) {
@@ -263,8 +275,54 @@ async function submitRegistration() {
     }
   } catch (error) {
     console.error('도메인 등록 제출 중 오류 발생:', error);
-    alert('도메인 등록/수정 중 오류가 발생했습니다.');
+    alert('도메인 등록/수정 과정 중 서버 통신과 오류가 발생했습니다.');
   }
 }
+
+// 도메인 삭제
+async function deleteDomain() {
+  if (!selectedZone || !selectedDomain) {
+    alert('도메인이 선택되지 않은 오류가 발생했습니다. 도메인 선택부터 다시 진행해주세요.');
+    return;
+  }
+
+  const result = confirm(`${selectedDomain}.${selectedZone} 도메인을 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다. (선택시 바로 삭제됩니다)`);
+
+  if (!result) {
+    return;
+  }
+
+  try {
+    // 레코드를 생성 또는 업데이트하는 API 엔드포인트
+    const response = await fetch(`/api/delete-record/${selectedDomain}/${selectedZone}`, {
+      method: 'DELETE',
+    });
+    const statusCode = response.status;
+
+    if (statusCode === 401) {
+        alert("로그인이 필요합니다.");
+        loadPage('auth');
+        return;
+    }
+
+    if (statusCode === 403) {
+        alert("해당 도메인에 대한 접근 권한이 없습니다.");
+        loadPage('domainList');
+        return;
+    }
+
+    if (response.ok) {
+      alert('도메인이 성공적으로 삭제되었습니다.');
+      loadPage('domainList');
+    } else {
+      const errorData = await response.json();
+      alert('알 수 없는 오류가 발생했습니다.');
+    }
+
+  } catch (error) {
+    console.error
+  }
+}
+
 
 

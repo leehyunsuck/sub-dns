@@ -8,17 +8,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import top.nulldns.subdns.dto.PDNSDto;
 import top.nulldns.subdns.dto.ResultMessageDTO;
-import top.nulldns.subdns.entity.HaveSubDomain;
-import top.nulldns.subdns.entity.Member;
+import top.nulldns.subdns.dao.HaveSubDomain;
+import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.repository.MemberRepository;
 import top.nulldns.subdns.util.PDNSRecordValidator;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -27,7 +29,6 @@ import java.util.NoSuchElementException;
 @RequiredArgsConstructor
 @Slf4j
 public class PDNSService {
-
     private final MemberRepository memberRepository;
     private final HaveSubDomainRepository haveSubDomainRepository;
     private final RestClient.Builder restClientBuilder;
@@ -84,7 +85,7 @@ public class PDNSService {
                             .queryParam("object_type", "record")
                             .build())
                     .retrieve()
-                    .body(new ParameterizedTypeReference<List<PDNSDto.SearchResult>>() {});
+                    .body(new ParameterizedTypeReference<>() {});
 
             return ResultMessageDTO.<List<PDNSDto.SearchResult>>builder().pass(true).data(result).build();
         } catch (Exception e) {
@@ -102,6 +103,10 @@ public class PDNSService {
      * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
     public ResultMessageDTO<Void> addRecord(String subDomain, String zone, String type, String content, HttpSession session) {
+        zone = zone.toLowerCase();
+        subDomain = subDomain.toLowerCase();
+        type = type.toUpperCase();
+
         // 최대 레코드 수 체크
         Long memberId = (Long) session.getAttribute("memberId");
         Member member = null;
@@ -115,40 +120,53 @@ public class PDNSService {
             currentRecords = 0;
 
         try {
-            currentRecords = haveSubDomainRepository.countByMemberId(memberId);
+            currentRecords = haveSubDomainRepository.countDistinctFullDomainByMemberId(memberId);
         } catch (Exception e) {
             return ResultMessageDTO.<Void>builder().pass(false).message("유저의 현재 등록된 전체 레코드 수 조회 중 에러 발생").build();
         }
-
-        // 여기서 수정이냐 추가냐 판단 필요
-        // -> 수정이면 개수 판단 X
-        //
-        //
-
 
         if (currentRecords >= maxRecords) {
             return ResultMessageDTO.<Void>builder().pass(false).message("최대 레코드 수 초과").build();
         }
 
-        // CNAME 을 등록하거나, 등록되어있는데 다른 타입을 등록하면 기존 레코드 삭제
-        boolean exitsCNAME = false;
-        if (type.equalsIgnoreCase("CNAME")) {
-            exitsCNAME = true;
-        }
+        LocalDate firstRecordExpiryDate = null;
+        boolean hasAny = haveSubDomainRepository.existsByFullDomain(subDomain + "." + zone);
+        boolean isTypeCNAME = type.equalsIgnoreCase("CNAME");
+        boolean hasCNAME = false;
+        boolean runDelete = false;
+
         ResultMessageDTO<List<PDNSDto.SearchResult>> searchResultDTO = searchResultList(subDomain + "." + zone);
         if (!searchResultDTO.isPass()) {
             return ResultMessageDTO.<Void>builder().pass(false).message("기존 레코드 검색 중 에러 발생").build();
         }
         for (PDNSDto.SearchResult record : searchResultDTO.getData()) {
             if (record.getType().equalsIgnoreCase("CNAME")) {
-                exitsCNAME = true;
+                hasCNAME = true;
                 break;
             }
         }
+        if (hasAny) {
+            firstRecordExpiryDate = haveSubDomainRepository.findAllByMemberIdAndFullDomain(memberId, subDomain + "." + zone).getFirst().getExpiryDate();
+        }
+
+        // CNAME 을 등록하거나, 등록되어있는데 다른 타입을 등록하면 기존 레코드 삭제
+        if (isTypeCNAME && hasAny) {
+            runDelete = true;
+        }
+        if (!isTypeCNAME && hasCNAME) {
+            runDelete = true;
+        }
+        log.debug("runDelete: {}", runDelete);
+        log.debug("hasAny: {}", hasAny);
+        log.debug("isTypeCNAME: {}", isTypeCNAME);
+        log.debug("hasCNAME: {}", hasCNAME);
 
         try {
-            if (exitsCNAME && !deleteAllSubRecords(zone, subDomain, session).isPass()) {
-                return ResultMessageDTO.<Void>builder().pass(false).message("기존 CNAME 레코드 삭제 중 에러 발생").build();
+            if (runDelete) {
+                log.debug("AddRecord - TYPE == CNAME - Delete all existing records");
+                if (!deleteAllSubRecords(subDomain, zone, session).isPass()) {
+                    return ResultMessageDTO.<Void>builder().pass(false).message("기존 레코드 삭제 중 에러 발생").build();
+                }
             }
 
             // PowerDNS 등록
@@ -164,6 +182,7 @@ public class PDNSService {
                         .fullDomain(subDomain + "." +  zone)
                         .recordType(type)
                         .content(content)
+                        .expiryDate(firstRecordExpiryDate)
                         .build();
                 haveSubDomainRepository.save(haveSubDomain);
 
@@ -187,20 +206,23 @@ public class PDNSService {
      * @param session       HttpSession
      * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
-    private ResultMessageDTO<Void> deleteAllSubRecords(String zone, String subDomain, HttpSession session) {
-        ResultMessageDTO<List<PDNSDto.SearchResult>> searchResultDTO = searchResultList(subDomain + "." + zone);
-        if (!searchResultDTO.isPass()) {
-            return ResultMessageDTO.<Void>builder().pass(false).message("레코드 검색 중 에러 발생").build();
+    public ResultMessageDTO<Void> deleteAllSubRecords(String subDomain, String zone, HttpSession session) {
+        log.debug("deleteAllSubRecords called for {}.{}", subDomain, zone);
+
+        List<HaveSubDomain> haveSubDomainList = haveSubDomainRepository.findAllByMemberIdAndFullDomain((Long) session.getAttribute("memberId"), subDomain + "." + zone);
+        log.debug("Found {} records to delete", haveSubDomainList.size());
+        if (haveSubDomainList.isEmpty()) {
+            log.debug("No records found to delete for {}.{}", subDomain, zone);
+            return ResultMessageDTO.<Void>builder().pass(true).message("삭제하려는 레코드가 DB에 존재하지 않음").build(); // 로직상 PDNS에서는 삭제됐으니 pass = true
         }
 
-        for (PDNSDto.SearchResult record : searchResultDTO.getData()) {
-            ResultMessageDTO<Void> result = deleteRecord(zone, subDomain, record.getType(), session);
+        for (HaveSubDomain haveSubDomain : haveSubDomainList) {
+            ResultMessageDTO<Void> result = deleteRecord(zone, subDomain, haveSubDomain.getRecordType(), session);
 
             if (!result.isPass()) {
                 return result;
             }
         }
-
         return ResultMessageDTO.<Void>builder().pass(true).build();
     }
 
@@ -213,6 +235,10 @@ public class PDNSService {
      * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
     public ResultMessageDTO<Void> deleteRecord(String zone, String subDomain, String type, HttpSession session) {
+        zone = zone.toLowerCase();
+        subDomain = subDomain.toLowerCase();
+        type = type.toUpperCase();
+
         Member member;
         String content = null;
         try {
@@ -228,7 +254,7 @@ public class PDNSService {
         }
 
         try {
-            HaveSubDomain haveSubDomain = haveSubDomainRepository.findByMemberIdAndFullDomain(member.getId(), subDomain + "." + zone).orElseThrow();
+            HaveSubDomain haveSubDomain = haveSubDomainRepository.findByMemberIdAndFullDomainAndRecordType(member.getId(), subDomain + "." + zone, type).orElseThrow();
             content = haveSubDomain.getContent();
             haveSubDomainRepository.delete(haveSubDomain);
 
@@ -259,14 +285,14 @@ public class PDNSService {
      * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
     private ResultMessageDTO<Void> modifyRecord(String zone, String subDomain, String type, String content, String action) {
+        log.debug("modifyRecord called");
+        log.debug("action {}", action);
         if (zone.isEmpty() || subDomain.isEmpty() || type.isEmpty() || action.isEmpty()) {
             return ResultMessageDTO.<Void>builder().pass(false).message("필수 파라미터 누락").build();
         }
 
-        zone      = zone.toLowerCase();
-        subDomain = subDomain.toLowerCase();
-        type      = type.toUpperCase();
-        action    = action.toUpperCase();
+        action = action.toUpperCase();
+        log.debug(zone, subDomain, type, action);
 
         if (!action.equals("REPLACE") && !action.equals("DELETE")) {
             return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 action").build();
@@ -310,6 +336,8 @@ public class PDNSService {
             }
         }
 
+        log.debug("pass all checks");
+
         PDNSDto.Rrset rrset = PDNSDto.Rrset.builder()
                 .name(subDomain + "." + zone + ".")
                 .type(type)
@@ -320,12 +348,14 @@ public class PDNSService {
         record PatchPayLoad(List<PDNSDto.Rrset> rrsets) {}
 
         try {
-            restClient.patch()
+
+            ResponseEntity<Void> res = restClient.patch()
                     .uri("/zones/" + zone)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(new PatchPayLoad(List.of(rrset)))
                     .retrieve()
                     .toBodilessEntity();
+            log.debug("PowerDNS API response status: {}", res.getStatusCode());
 
             return ResultMessageDTO.<Void>builder().pass(true).build();
         } catch (Exception e) {

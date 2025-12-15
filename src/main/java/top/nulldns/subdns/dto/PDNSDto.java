@@ -18,13 +18,6 @@ public class PDNSDto {
     }
 
     @Data
-    @Builder
-    public static class HaveDomain {
-        private String  subDomain,
-                        zone;
-    }
-
-    @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SearchResult {
         private String  name,       // full Domain

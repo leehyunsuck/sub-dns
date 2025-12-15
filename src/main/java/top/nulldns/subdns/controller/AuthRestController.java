@@ -15,6 +15,6 @@ public class AuthRestController {
     public ResponseEntity<IdDto> me(HttpSession session) {
         String id = (String) session.getAttribute("id");
 
-        return id == null ? ResponseEntity.status(HttpStatus.UNAUTHORIZED).build() : ResponseEntity.ok(IdDto.builder().id(id).build());
+        return id == null ? ResponseEntity.status(HttpStatus.UNAUTHORIZED).build() : ResponseEntity.ok(new IdDto(id));
     }
 }

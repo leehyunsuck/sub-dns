@@ -19,7 +19,6 @@ async function loadPage(page) {
     }
     // 'profile' 페이지 관련 로직 제거됨
   } catch (error) {
-    console.error(`페이지 로드 중 오류 발생: ${page}:`, error);
     document.getElementById('content').innerHTML = `<p>페이지 로드 중 오류 발생. 자세한 내용은 콘솔을 참조하세요.</p>`;
   }
 }
@@ -81,12 +80,10 @@ async function searchDomain() {
     resultDiv.innerHTML = html;
 
   } catch (error) {
-    console.error('도메인 검색 중 오류 발생:', error);
     resultDiv.innerHTML = '<p>도메인 검색 중 오류 발생</p>';
   }
 }
 async function openDomainDetail(subDomain, zone, isNew) {
-  console.log(`도메인 상세 열기: ${subDomain}.${zone}, isNew: ${isNew}`);
   await loadPage('domainDetail');
   document.getElementById('domainTitle').innerText = subDomain + '.' + zone;
 
@@ -122,7 +119,6 @@ async function openDomainDetail(subDomain, zone, isNew) {
     }
 
     const recordList = await response.json();
-    console.log(recordList);
 
     recordMap = {};
     for (const record of recordList) {
@@ -132,7 +128,9 @@ async function openDomainDetail(subDomain, zone, isNew) {
     applyRecordToInput();
     updateInputFields();
   } catch (err) {
-    console.error("레코드 불러오기 오류:", err);
+    alert("도메인 정보를 불러오는 중 오류가 발생했습니다.");
+    loadPage('domainList');
+    return;
   }
 }
 
@@ -184,7 +182,6 @@ async function checkAuth() {
       authSection.innerHTML = `<a href="#" onclick="loadPage('auth')">로그인</a>`;
     }
   } catch (error) {
-    console.error('인증 상태 확인 중 오류 발생:', error);
     authSection.innerHTML = `<a href="#" onclick="loadPage('auth')">로그인</a>`;
   }
 }
@@ -243,7 +240,6 @@ async function loadUserDomains() {
       listDiv.innerHTML = '<p>보유한 도메인이 없습니다. 도메인을 검색하여 추가해보세요.</p>';
     }
   } catch (error) {
-    console.error('사용자 도메인 로드 중 오류 발생:', error);
     listDiv.innerHTML = '<p>도메인 목록을 불러오는 중 오류가 발생했습니다.</p>';
   }
 }
@@ -270,11 +266,10 @@ async function submitRegistration() {
       alert('도메인 정보가 성공적으로 업데이트되었습니다.');
       loadPage('domainList');
     } else {
-      const errorData = await response.json();
-      alert(`오류: ${errorData.message || '알 수 없는 오류가 발생했습니다.'}`);
+      const errorData = await response.text();
+      alert(`오류: ${errorData || '알 수 없는 오류가 발생했습니다.'}`);
     }
   } catch (error) {
-    console.error('도메인 등록 제출 중 오류 발생:', error);
     alert('도메인 등록/수정 과정 중 서버 통신과 오류가 발생했습니다.');
   }
 }
@@ -320,7 +315,7 @@ async function deleteDomain() {
     }
 
   } catch (error) {
-    console.error
+
   }
 }
 

@@ -32,13 +32,13 @@ public class PDNSService {
     private final MemberRepository memberRepository;
     private final HaveSubDomainRepository haveSubDomainRepository;
     private final RestClient.Builder restClientBuilder;
+    private final AdminService adminService;
 
     @Value("${pdns.url}")
     private String pdnsUrl;
     @Value("${pdns.api-key}")
     private String pdnsApiKey;
     private RestClient restClient;
-    
     @Getter
     private List<PDNSDto.ZoneName> cachedZoneNames;
 
@@ -156,10 +156,6 @@ public class PDNSService {
         if (!isTypeCNAME && hasCNAME) {
             runDelete = true;
         }
-        log.debug("runDelete: {}", runDelete);
-        log.debug("hasAny: {}", hasAny);
-        log.debug("isTypeCNAME: {}", isTypeCNAME);
-        log.debug("hasCNAME: {}", hasCNAME);
 
         try {
             if (runDelete) {
@@ -169,10 +165,11 @@ public class PDNSService {
                 }
             }
 
+            boolean isAdmin = adminService.isAdmin(memberId);
             // PowerDNS 등록
-            ResultMessageDTO<Void> pdnsResult = modifyRecord(zone, subDomain, type, content, "REPLACE");
+            ResultMessageDTO<Void> pdnsResult = modifyRecord(zone, subDomain, type, content, "REPLACE", isAdmin);
             if (!pdnsResult.isPass()) {
-                throw new Exception(pdnsResult.getMessage());
+                return ResultMessageDTO.<Void>builder().pass(false).message(pdnsResult.getMessage()).build();
             }
 
             // DB 등록
@@ -234,11 +231,18 @@ public class PDNSService {
      * @param type          A, CNAME, TXT 등
      * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
-    public ResultMessageDTO<Void> deleteRecord(String zone, String subDomain, String type, HttpSession session) {
+    private ResultMessageDTO<Void> deleteRecord(String zone, String subDomain, String type, HttpSession session) {
         zone = zone.toLowerCase();
         subDomain = subDomain.toLowerCase();
         type = type.toUpperCase();
 
+        // 보유 도메인 체크
+        boolean isHaveDomain = haveSubDomainRepository.existsHaveSubDomainByMemberIdAndFullDomain((Long) session.getAttribute("memberId"), subDomain + "." + zone);
+        if (!isHaveDomain) {
+            return ResultMessageDTO.<Void>builder().pass(false).message("보유 도메인 아님").build();
+        }
+
+        // 세션에서 멤버 정보 조회
         Member member;
         String content = null;
         try {
@@ -247,12 +251,15 @@ public class PDNSService {
             log.error("세션에 저장된 유저 정보가 DB에 존재하지 않음", e);
             return ResultMessageDTO.<Void>builder().pass(false).message("세션에 저장된 유저 정보가 DB에 존재하지 않음").build();
         }
-
-        ResultMessageDTO<Void> pdnsResult = modifyRecord(zone, subDomain, type, null, "DELETE");
+        
+        // 삭제 진행
+        boolean isAdmin = adminService.isAdmin(member.getId());
+        ResultMessageDTO<Void> pdnsResult = modifyRecord(zone, subDomain, type, null, "DELETE", isAdmin);
         if (!pdnsResult.isPass()) {
             return pdnsResult;
         }
 
+        // PDNS에서 삭제 성공시 DB에서도 제거
         try {
             HaveSubDomain haveSubDomain = haveSubDomainRepository.findByMemberIdAndFullDomainAndRecordType(member.getId(), subDomain + "." + zone, type).orElseThrow();
             content = haveSubDomain.getContent();
@@ -284,7 +291,7 @@ public class PDNSService {
      * @param action        REPLACE / DELETE
      * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
-    private ResultMessageDTO<Void> modifyRecord(String zone, String subDomain, String type, String content, String action) {
+    private ResultMessageDTO<Void> modifyRecord(String zone, String subDomain, String type, String content, String action, boolean isAdmin) {
         log.debug("modifyRecord called");
         log.debug("action {}", action);
         if (zone.isEmpty() || subDomain.isEmpty() || type.isEmpty() || action.isEmpty()) {
@@ -295,20 +302,28 @@ public class PDNSService {
         log.debug(zone, subDomain, type, action);
 
         if (!action.equals("REPLACE") && !action.equals("DELETE")) {
-            return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 action").build();
+            return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 액션입니다.").build();
         }
-        if (!PDNSRecordValidator.isValidLabel(subDomain)) { // subDomain 유효성 체크
-            return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 subDomain").build();
+
+        // SubDomain 라벨 체크
+        if (isAdmin) {
+            if (!PDNSRecordValidator.isValidLabelAdmin(subDomain)) {
+                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 서브 도메인 입니다.").build();
+            }
+        } else {
+            if (!PDNSRecordValidator.isValidLabel(subDomain)) {
+                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 서브 도메인 입니다.").build();
+            }
         }
 
         PDNSDto.Record record = null;
 
         if (action.equals("REPLACE")) {
             if (content == null || content.isEmpty()) { // 등록/수정은 content 값이 반드시 필요
-                return ResultMessageDTO.<Void>builder().pass(false).message("등록/수정에 필요한 content 누락").build();
+                return ResultMessageDTO.<Void>builder().pass(false).message("등록/수정에 필요한 정보가 누락되었습니다.").build();
             }
             if (!PDNSRecordValidator.validate(type, content)) { // type 별 content 유효성 체크
-                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 content").build();
+                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 내용 입니다.").build();
             }
 
             if (type.equals("TXT")) {
@@ -332,7 +347,7 @@ public class PDNSService {
                     .build();
         } else {
             if (!PDNSRecordValidator.isValidType(type)) { // 삭제는 type 값만 유효성 체크
-                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 type").build();
+                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 타입입니다.").build();
             }
         }
 

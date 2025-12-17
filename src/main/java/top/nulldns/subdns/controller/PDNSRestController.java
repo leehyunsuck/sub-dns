@@ -11,9 +11,12 @@ import top.nulldns.subdns.dto.PDNSDto;
 import top.nulldns.subdns.dto.ResultMessageDTO;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
+import top.nulldns.subdns.service.AdminService;
+import top.nulldns.subdns.service.HaveSubDomainService;
 import top.nulldns.subdns.service.PDNSService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
 
+import java.time.LocalDate;
 import java.util.*;
 
 @RestController
@@ -22,11 +25,38 @@ import java.util.*;
 @RequestMapping("/api")
 public class PDNSRestController {
     private final PDNSService pdnsService;
-
+    private final AdminService adminService;
     private final HaveSubDomainRepository haveSubDomainRepository;
+    private final HaveSubDomainService haveSubDomainService;
 
     private boolean isLoggedIn(HttpSession session) {
         return session.getAttribute("memberId") != null && session.getAttribute("id") != null;
+    }
+
+    @PatchMapping("/update-record/{subDomain}/{zone}")
+    public ResponseEntity<Void> updateRecord(HttpSession session, @PathVariable String subDomain, @PathVariable String zone) {
+        if (!isLoggedIn(session)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build(); // 로그인 필요
+        }
+
+        Long memberId = (Long) session.getAttribute("memberId");
+        String fullDomain = subDomain + "." + zone;
+
+        boolean isOwner = haveSubDomainRepository.existsHaveSubDomainByMemberIdAndFullDomain(memberId, fullDomain);
+        if (!isOwner) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // 권한 없음
+        }
+
+        List<HaveSubDomain> subDomains = haveSubDomainRepository.findAllByMemberIdAndFullDomain(memberId, fullDomain);
+        if (subDomains.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // 도메인 없음
+        }
+
+        if (!haveSubDomainService.renew(subDomains).isPass()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build(); // 갱신 불가
+        }
+
+        return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/delete-record/{subDomain}/{zone}")
@@ -35,21 +65,19 @@ public class PDNSRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        boolean isHaveDomain = haveSubDomainRepository.existsHaveSubDomainByMemberIdAndFullDomain((Long) session.getAttribute("memberId"), subDomain + "." + zone);
-        if (!isHaveDomain) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
         try {
-            if (!pdnsService.deleteAllSubRecords(subDomain, zone, session).isPass()) {
-                throw new Exception("도메인 삭제 실패");
+            ResultMessageDTO<Void> deleteResult = pdnsService.deleteAllSubRecords(subDomain, zone, session);
+            if (deleteResult.isPass()) {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
             }
-
-            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+            if (deleteResult.getMessage().equals("보유 도메인 아님")) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
         } catch (Exception e) {
             log.error("도메인 삭제 요청 중 에러 발생", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+
         }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 
     @GetMapping("/my-domains")
@@ -102,8 +130,10 @@ public class PDNSRestController {
     }
 
     @GetMapping("/available-domains/{subDomain}")
-    public ResponseEntity<PDNSDto.CanAddSubDomainZones> availableDomains(@PathVariable String subDomain) {
-        boolean isBlockedDomain = !PDNSRecordValidator.isValidLabel(subDomain);
+    public ResponseEntity<PDNSDto.CanAddSubDomainZones> availableDomains(@PathVariable String subDomain, HttpSession session) {
+        boolean isAdmin = adminService.isAdmin((Long) session.getAttribute("memberId"));
+
+        boolean isAllowDomain = isAdmin ? PDNSRecordValidator.isValidLabelAdmin(subDomain) : PDNSRecordValidator.isValidLabel(subDomain);
 
         List<PDNSDto.ZoneName> zoneNameList = pdnsService.getCachedZoneNames();
 
@@ -116,7 +146,7 @@ public class PDNSRestController {
             String  zoneName = zone.getName(),
                     fullDomain = subDomain + "." + zoneName;
 
-            boolean canAdd = !isBlockedDomain && !haveSubDomainRepository.existsByFullDomain(fullDomain);
+            boolean canAdd = isAllowDomain && !haveSubDomainRepository.existsByFullDomain(fullDomain);
 
             canAddSubDomainZones.getZones().add(
                     PDNSDto.ZoneAddCapability.builder()

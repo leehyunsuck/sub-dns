@@ -38,25 +38,17 @@ public class HaveSubDomain {
         }
     }
 
-    public void updateContent(String recordType, String content) {
-        this.recordType = recordType;
-        this.content = content;
-    }
 
-    public boolean isRenewable(LocalDate now) {
+    public boolean isRenewable() {
         LocalDate oneMonthBeforeExpiry = this.expiryDate.minusMonths(1);
-        return now.isAfter(oneMonthBeforeExpiry);
+        
+        return LocalDate.now().isAfter(oneMonthBeforeExpiry);
     }
 
-    public void renewDate(LocalDate now) {
-        if (!isRenewable(now)) {
-            throw new IllegalStateException("갱신 가능한 기간이 아닙니다 (만료 1달 전부터 가능).");
+    public void renewDate() {
+        if (!isRenewable()) {
+            return;
         }
-
-        if (now.isAfter(this.expiryDate)) {
-            this.expiryDate = now.plusMonths(6);
-        } else {
-            this.expiryDate = this.expiryDate.plusMonths(6);
-        }
+        this.expiryDate = this.expiryDate.plusMonths(6);
     }
 }

@@ -16,6 +16,9 @@ public class PDNSRecordValidator {
     private static final Pattern LABEL_PATTERN = Pattern.compile(
             "^(?!-)(?!.*--)[A-Za-z0-9-]{4,63}(?<!-)$"
     );
+    private static final Pattern LABEL_PATTERN_ADMIN = Pattern.compile(
+            "^(?!-)(?!.*--)[A-Za-z0-9-]{1,63}(?<!-)$"
+    );
     private static final Set<String> VALID_TYPES = Set.of(
             "A", "AAAA", "CNAME", "TXT"
             //"MX, "NS", "SOA", "PTR", "SRV", "CAA"
@@ -44,6 +47,12 @@ public class PDNSRecordValidator {
         if (type == null || type.isEmpty()) return false;
 
         return VALID_TYPES.contains(type);
+    }
+
+    public static boolean isValidLabelAdmin(String label) {
+        if (label == null || label.isEmpty()) return false;
+
+        return LABEL_PATTERN_ADMIN.matcher(label).matches();
     }
 
     public static boolean isValidLabel(String label) {

@@ -16,7 +16,6 @@ import top.nulldns.subdns.service.HaveSubDomainService;
 import top.nulldns.subdns.service.PDNSService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
 
-import java.time.LocalDate;
 import java.util.*;
 
 @RestController
@@ -47,12 +46,13 @@ public class PDNSRestController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // 권한 없음
         }
 
-        List<HaveSubDomain> subDomains = haveSubDomainRepository.findAllByMemberIdAndFullDomain(memberId, fullDomain);
-        if (subDomains.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // 도메인 없음
-        }
+        ResultMessageDTO<Integer> renewResult = haveSubDomainService.renew(memberId, fullDomain);
+        int code = renewResult.getData();
+        log.debug("도메인 갱신 요청 결과 코드: {}", code);
 
-        if (!haveSubDomainService.renew(subDomains).isPass()) {
+        if (code == 404) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // 도메인 없음
+        } else if (code == 400) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build(); // 갱신 불가
         }
 

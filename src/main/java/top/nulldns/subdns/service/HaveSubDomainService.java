@@ -1,26 +1,36 @@
 package top.nulldns.subdns.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dto.ResultMessageDTO;
+import top.nulldns.subdns.repository.HaveSubDomainRepository;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class HaveSubDomainService {
+    private final HaveSubDomainRepository haveSubDomainRepository;
     @Transactional
-    public ResultMessageDTO<Void> renew(List<HaveSubDomain> haveSubDomainList) {
-        if (!haveSubDomainList.getFirst().isRenewable()) {
-            return ResultMessageDTO.<Void>builder().pass(false).message("갱신 가능한 날짜가 아닙니다").build();
+    public ResultMessageDTO<Integer> renew(Long memberId, String fullDomain) {
+        List<HaveSubDomain> subDomains = haveSubDomainRepository.findAllByMemberIdAndFullDomain(memberId, fullDomain);
+
+        if (subDomains.isEmpty()) {
+            return ResultMessageDTO.<Integer>builder().pass(false).data(404).build();
         }
 
-        for (HaveSubDomain haveSubDomain : haveSubDomainList) {
-            haveSubDomain.renewDate();
+        if (!subDomains.getFirst().isRenewable()) {
+            return ResultMessageDTO.<Integer>builder().pass(false).data(400).build();
         }
 
-        return ResultMessageDTO.<Void>builder().pass(true).build();
+        for (HaveSubDomain subDomain : subDomains) {
+            subDomain.renewDate();
+        }
+
+        return ResultMessageDTO.<Integer>builder().pass(true).data(200).build();
     }
 }

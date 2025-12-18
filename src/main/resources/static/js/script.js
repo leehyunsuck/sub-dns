@@ -234,6 +234,15 @@ async function loadUserDomains() {
         <div class="item" onclick="openDomainDetail('${haveDomain.subDomain}', '${haveDomain.zone}', false)">
             ${haveDomain.subDomain}.${haveDomain.zone}
         </div>
+        <div class="${getExpirationClass(haveDomain.expirationDate)} status-clickable"
+            onclick="renewDate('${haveDomain.subDomain}', '${haveDomain.zone}', '${haveDomain.expirationDate}')">
+            ${
+              haveDomain.expirationDate
+                ? `만료일: ${new Date(haveDomain.expirationDate).toLocaleDateString()}`
+                : '만료일 정보 없음'
+            }
+        </div>
+
         `
       ).join('');
     } else {
@@ -319,5 +328,39 @@ async function deleteDomain() {
   }
 }
 
+async function renewDate(subDomain, zone) {
+  const response = await fetch(`/api/update-record/${subDomain}/${zone}`, {
+    method: 'PATCH',
+  });
 
+  const resultCode = response.status;
+    if (resultCode === 200) {
+        alert('도메인 만료일이 성공적으로 갱신되었습니다.');
+        loadPage('domainList');
+    } else if (resultCode === 401) {
+        alert('로그인이 필요합니다.');
+        loadPage('auth');
+        return;
+    } else if (resultCode === 403) {
+        alert('해당 도메인에 대한 접근 권한이 없습니다.');
+    } else if (resultCode === 404) {
+        alert('도메인을 찾을 수 없습니다.');
+    } else {
+        alert('만료일 갱신은 1달 전 부터 가능합니다.');
+    }
+
+    loadPage('domainList');
+}
+
+function getExpirationClass(expirationDate) {
+  if (!expirationDate) return '';
+
+  const now = new Date();
+  const expire = new Date(expirationDate);
+
+  const diffMs = expire - now;
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  return diffDays < 30 ? 'status-no' : '';
+}
 

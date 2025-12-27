@@ -10,7 +10,15 @@ import java.time.LocalDate;
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-@Table(name = "have_sub_domain")
+@Table(
+        name = "have_sub_domain",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uk_member_full_domain_record_type",
+                    columnNames = {"full_domain", "record_type"}
+            )
+        }
+)
 public class HaveSubDomain {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

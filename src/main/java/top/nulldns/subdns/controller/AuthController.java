@@ -14,21 +14,21 @@ import top.nulldns.subdns.service.AuthService;
 public class AuthController {
     private final AuthService authService;
 
-    @GetMapping("/login-success")
+    @GetMapping("/run-login")
     public String loginSuccess(OAuth2AuthenticationToken token, HttpSession session) {
         String provider = token.getAuthorizedClientRegistrationId();
         String providerId = token.getPrincipal().getAttribute("id").toString();
 
         Member member = authService.loginOrSignup(provider, providerId);
+        if (member.isBanned()) {
+            return "redirect:/banned.html";
+        }
+
         session.setAttribute("id", member.getProvider() + member.getProviderId());
         session.setAttribute("memberId", member.getId());
 
         return "redirect:/";
     }
 
-    @PostMapping("/logout")
-    public String logout(HttpSession session) {
-        session.invalidate();
-        return "redirect:/";
-    }
+
 }

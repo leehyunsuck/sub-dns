@@ -223,6 +223,30 @@ public class PDNSService {
         return ResultMessageDTO.<Void>builder().pass(true).build();
     }
 
+    public ResultMessageDTO<Void> deleteAllSubRecordsByMemberId(Long memberId) {
+        List<HaveSubDomain> haveSubDomainList = haveSubDomainRepository.findByMemberId(memberId);
+        log.debug("Found {} records to delete for memberId {}", haveSubDomainList.size(), memberId);
+        if (haveSubDomainList.isEmpty()) {
+            return ResultMessageDTO.<Void>builder().pass(false).message("저장된 서브도메인 없음").build();
+        }
+
+        boolean pass = true;
+        for (HaveSubDomain haveSubDomain : haveSubDomainList) {
+            String[] domainParts = haveSubDomain.getFullDomain().split("\\.", 2);
+
+            String subDomain = domainParts[0];
+            String zone = domainParts[1];
+
+            ResultMessageDTO<Void> result = deleteRecord(zone, subDomain, haveSubDomain.getRecordType(), null);
+
+            if (!result.isPass()) {
+                pass = false;
+                log.error("모든 서브 레코드 삭제 중 에러 발생. DB에서는 삭제 진행예정\n도메인 정보: {}\nmemberId: {}", haveSubDomain.toString(), memberId);
+            }
+        }
+
+        return ResultMessageDTO.<Void>builder().pass(pass).message(memberId + "의 모든 보유 도메인 삭제 중 에러 발생").build();
+    }
 
     /**
      * 레코드 삭제

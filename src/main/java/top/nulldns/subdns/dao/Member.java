@@ -29,4 +29,7 @@ public class Member {
 
     @Builder.Default
     private int maxRecords = 10;
+
+    @Builder.Default
+    private boolean banned = false;
 }

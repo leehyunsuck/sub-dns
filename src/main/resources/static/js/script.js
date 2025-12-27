@@ -177,6 +177,7 @@ async function checkAuth() {
       authSection.innerHTML = `
         <span>${ idDto.id || '사용자'}님</span>
         <a href="#" onclick="logout()">로그아웃</a>
+        <a href="#" onclick="leave()">회원탈퇴</a>
       `;
     } else {
       authSection.innerHTML = `<a href="#" onclick="loadPage('auth')">로그인</a>`;
@@ -186,12 +187,19 @@ async function checkAuth() {
   }
 }
 
-function logout() {
-  fetch('/logout', { method: 'POST' })
-      .then(() => {
-        window.location.reload();
-      })
-      .catch(error => console.error('로그아웃 실패:', error));
+async function logout() {
+  try {
+    const result = await fetch('/api/logout', { method: 'POST' });
+    const statusCode = result.status;
+
+    if (statusCode !== 200) {
+        throw new Error();
+    }
+    window.location.reload();
+    loadPage('domainSearch');
+  } catch (error) {
+    alert('로그아웃 중 오류가 발생했습니다. 다시 시도해주세요.');
+  }
 }
 
 function loginWithGitHub() {
@@ -262,7 +270,7 @@ async function submitRegistration() {
     alert('레코드 타입과 값을 모두 입력해주세요.');
     return;
   }
-  
+
   try {
     // 레코드를 생성 또는 업데이트하는 API 엔드포인트
     const response = await fetch('/api/add-record', {
@@ -326,6 +334,31 @@ async function deleteDomain() {
   } catch (error) {
 
   }
+}
+
+async function leave() {
+  pass = prompt("정말로 회원탈퇴를 진행하시겠습니까? 탈퇴를 원하시면 '탈퇴' 를 입력해주세요.");
+  isPass = pass === "탈퇴";
+
+    if (!isPass) {
+        alert("회원탈퇴가 취소되었습니다.");
+        return;
+    }
+
+    try {
+        const response = await fetch('/leave', {
+            method: 'DELETE',
+        });
+
+        if (response.ok) {
+            alert('회원탈퇴가 성공적으로 처리되었습니다.');
+            window.location.reload();
+        } else {
+            alert('회원탈퇴 중 오류가 발생했습니다. 다시 시도해주세요.');
+        }
+    } catch (error) {
+        alert('서버와의 통신 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
 }
 
 async function renewDate(subDomain, zone) {

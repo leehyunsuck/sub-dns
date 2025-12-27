@@ -23,4 +23,5 @@ public interface HaveSubDomainRepository extends JpaRepository<HaveSubDomain, Lo
 
     boolean existsByFullDomain(String fullDomain);
 
+    void deleteAllByMemberId(Long memberId);
 }

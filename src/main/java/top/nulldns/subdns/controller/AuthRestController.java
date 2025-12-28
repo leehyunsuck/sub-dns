@@ -2,17 +2,12 @@ package top.nulldns.subdns.controller;
 
 import jakarta.servlet.http.HttpSession;
 import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import top.nulldns.subdns.dto.IdDto;
-import top.nulldns.subdns.dto.ResultMessageDTO;
-import top.nulldns.subdns.repository.HaveSubDomainRepository;
-import top.nulldns.subdns.repository.MemberRepository;
 import top.nulldns.subdns.service.AuthService;
-import top.nulldns.subdns.service.PDNSService;
 
 @RestController
 @RequestMapping("/api")

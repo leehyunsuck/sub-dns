@@ -64,14 +64,15 @@ public class PDNSRestController {
         if (!isLoggedIn(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+        Long memberId = (Long) session.getAttribute("memberId");
+        if (!pdnsService.isDomainOwner(memberId, subDomain + "." + zone)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
         try {
-            ResultMessageDTO<Void> deleteResult = pdnsService.deleteAllSubRecords(subDomain, zone, session);
+            ResultMessageDTO<Void> deleteResult = pdnsService.deleteAllSubRecords(subDomain, zone, memberId);
             if (deleteResult.isPass()) {
                 return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-            }
-            if (deleteResult.getMessage().equals("보유 도메인 아님")) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
         } catch (Exception e) {
             log.error("도메인 삭제 요청 중 에러 발생", e);
@@ -133,7 +134,7 @@ public class PDNSRestController {
     public ResponseEntity<PDNSDto.CanAddSubDomainZones> availableDomains(@PathVariable String subDomain, HttpSession session) {
         boolean isAdmin = adminService.isAdmin((Long) session.getAttribute("memberId"));
 
-        boolean isAllowDomain = isAdmin ? PDNSRecordValidator.isValidLabelAdmin(subDomain) : PDNSRecordValidator.isValidLabel(subDomain);
+        boolean isAllowDomain = isAdmin || PDNSRecordValidator.isValidLabel(subDomain);
 
         List<PDNSDto.ZoneName> zoneNameList = pdnsService.getCachedZoneNames();
 
@@ -164,8 +165,9 @@ public class PDNSRestController {
         if (!isLoggedIn(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+        Long memberId = (Long) session.getAttribute("memberId");
 
-        ResultMessageDTO<Void> result = pdnsService.addRecord(request.getSubDomain(), request.getZone(), request.getType(), request.getContent(), session);
+        ResultMessageDTO<Void> result = pdnsService.addRecord(request.getSubDomain(), request.getZone(), request.getType(), request.getContent(), memberId);
         if (result.isPass()) {
             return ResponseEntity.status(HttpStatus.CREATED).build();
         }

@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import top.nulldns.subdns.dao.HaveSubDomain;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,6 +13,8 @@ public interface HaveSubDomainRepository extends JpaRepository<HaveSubDomain, Lo
 
     @Query("SELECT h FROM HaveSubDomain h WHERE h.member.id = :memberId GROUP BY h.fullDomain")
     List<HaveSubDomain> findDistinctByMemberId(Long memberId);
+
+    List<HaveSubDomain> findByExpiryDateBefore(LocalDate date);
 
     List<HaveSubDomain> findAllByMemberIdAndFullDomain(Long memberId, String fullDomain);
     Optional<HaveSubDomain> findByMemberIdAndFullDomainAndRecordType(Long memberId, String fullDomain, String recordType);

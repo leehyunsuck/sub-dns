@@ -346,7 +346,7 @@ async function leave() {
     }
 
     try {
-        const response = await fetch('/leave', {
+        const response = await fetch('/api/leave', {
             method: 'DELETE',
         });
 

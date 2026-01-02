@@ -24,21 +24,35 @@ public class PDNSRecordValidator {
             //"MX, "NS", "SOA", "PTR", "SRV", "CAA"
     );
     private static final Set<String> EXACT_BLOCK_WORDS = Set.of(
+            // 기본 서비스
             "www", "api", "dns", "ns", "ns1", "ns2", "ns3", "ns4",
             "mx", "mail", "email", "smtp", "imap", "pop", "ftp", "sftp", "ssh",
             "dev", "stg", "prod", "test", "demo",
-            "db", "sql", "server", "client", "cloud", "network",
-            "auth", "login", "signin", "signup", "register", "password",
-            "dashboard", "config", "manage", "billing", "payment", "secure",
-            "wpad", "autodiscover", "isatap", "local", "localhost",
-            "noreply", "abuse", "support", "helpdesk", "ssl", "cert", ".well-known",
-            "google", "naver", "kakao", "aws", "azure", "apple", "microsoft", "help"
+
+            // 보안 및 인증 (중요)
+            "_acme-challenge", "_domainconnect", "ssl", "cert", ".well-known",
+            "auth", "login", "signin", "signup", "register", "password", "security", "verify",
+
+            // 피싱 방지
+            "account", "bank", "wallet", "pay", "payment", "billing", "token", "secure",
+            "official", "support", "help", "helpdesk", "abuse", "noreply",
+
+            // 인프라 및 네트워크
+            "db", "sql", "server", "client", "cloud", "network", "vpn", "internal",
+            "gateway", "proxy", "monitor", "status", "update", "cdn", "static", "media",
+            "wpad", "autodiscover", "isatap", "local", "localhost", "host",
+
+            // 플랫폼 및 기업
+            "dashboard", "config", "manage", "m", "mobile", "app", "site",
+            "google", "naver", "kakao", "aws", "azure", "apple", "microsoft",
+            "legal", "terms", "privacy", "policy", "jobs", "contact",
+            "service", "public", "private"
     );
 
     private static final Set<String> CONTAINS_BLOCK_WORDS = Set.of(
             "admin", "administrator", "root", "system", "sysadmin",
             "master", "webmaster", "hostmaster", "postmaster",
-            "nulldns", "subdns"
+            "nulldns", "subdns", "official"
     );
 
     public static boolean isValidType(String type) {

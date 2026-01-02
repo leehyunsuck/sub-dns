@@ -23,12 +23,6 @@ public class AuthRestController {
         return id == null ? ResponseEntity.status(HttpStatus.UNAUTHORIZED).build() : ResponseEntity.ok(new IdDto(id));
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpSession session) {
-        session.invalidate();
-        return ResponseEntity.ok().build();
-    }
-
     @DeleteMapping("/leave")
     public ResponseEntity<Void> leave(HttpSession session) {
         Long memberId = (Long) session.getAttribute("memberId");

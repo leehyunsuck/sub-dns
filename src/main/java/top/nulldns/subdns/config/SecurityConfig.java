@@ -17,12 +17,21 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
-                        .requestMatchers("/", "/index.html", "/pages/**", "/assets/**", "/banned.html", "/ToS.txt").permitAll()
-                        .requestMatchers("/api/**").permitAll()
+                        .requestMatchers("/", "/index.html").permitAll()
+                        //.requestMatchers("/api/**")
+                        .requestMatchers("/api/available-domains/**", "/api/me").permitAll()
+                        .requestMatchers("/robot.txt", "/sitemap.xml").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .defaultSuccessUrl("/run-login", true) // 로그인 성공 시 메인으로
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/")
+                        .invalidateHttpSession(true)
+                        .clearAuthentication(true)
+                        .deleteCookies("JSESSIONID")
                 );
 
         return http.build();

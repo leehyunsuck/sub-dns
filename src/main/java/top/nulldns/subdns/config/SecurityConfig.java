@@ -18,9 +18,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                         .requestMatchers("/", "/index.html").permitAll()
-                        //.requestMatchers("/api/**")
                         .requestMatchers("/api/available-domains/**", "/api/me").permitAll()
-                        .requestMatchers("/robot.txt", "/sitemap.xml").permitAll()
+                        .requestMatchers("/robots.txt", "/sitemap.xml").permitAll()
+                        .requestMatchers("naver114d2366f4787248382a17a44f17b76b.html", "naver114d2366f4787248382a17a44f17b76b").permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

@@ -134,7 +134,8 @@ public class PDNSRestController {
     public ResponseEntity<PDNSDto.CanAddSubDomainZones> availableDomains(@PathVariable String subDomain, HttpSession session) {
         boolean isAdmin = adminService.isAdmin((Long) session.getAttribute("memberId"));
 
-        boolean isAllowDomain = isAdmin || PDNSRecordValidator.isValidLabel(subDomain);
+        boolean isAllowDomain = isAdmin ? PDNSRecordValidator.isValidLabelAdmin(subDomain)
+                                        : PDNSRecordValidator.isValidLabel(subDomain);
 
         List<PDNSDto.ZoneName> zoneNameList = pdnsService.getCachedZoneNames();
 

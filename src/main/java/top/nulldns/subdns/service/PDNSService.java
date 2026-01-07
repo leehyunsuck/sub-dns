@@ -107,9 +107,9 @@ public class PDNSService {
      * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
     public ResultMessageDTO<Void> addRecord(String subDomain, String zone, String type, String content, Long memberId) {
-        zone = zone.toLowerCase();
-        subDomain = subDomain.toLowerCase();
-        type = type.toUpperCase();
+        zone = zone.toLowerCase().trim();
+        subDomain = subDomain.toLowerCase().trim();
+        type = type.toUpperCase().trim();
 
         boolean isAdmin = adminService.isAdmin(memberId);
 
@@ -333,7 +333,11 @@ public class PDNSService {
         }
 
         // SubDomain 라벨 체크
-        if (!isAdmin) {
+        if (isAdmin) {
+            if (!PDNSRecordValidator.isValidLabelAdmin(subDomain)) {
+                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 서브 도메인 입니다.").build();
+            }
+        } else {
             if (!PDNSRecordValidator.isValidLabel(subDomain)) {
                 return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 서브 도메인 입니다.").build();
             }

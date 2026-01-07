@@ -17,7 +17,7 @@ public class PDNSRecordValidator {
             "^(?!-)(?!.*--)[A-Za-z0-9-]{4,63}(?<!-)$"
     );
     private static final Pattern LABEL_PATTERN_ADMIN = Pattern.compile(
-            "^(?!-)(?!.*--)[A-Za-z0-9-]{1,63}(?<!-)$"
+            "^[A-Za-z0-9-]{1,63}$"
     );
     private static final Set<String> VALID_TYPES = Set.of(
             "A", "AAAA", "CNAME", "TXT"

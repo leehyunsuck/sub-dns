@@ -11,9 +11,7 @@
     <meta property="og:description" content="DNS 무료 등록 서비스">
     <meta property="og:url" content="https://nulldns.top">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="og 이미지 1200 x 630">
-
-    <meta property="og:image" th:content="${staticUrl} + 'assets/og-image.png'">
+    <meta property="og:image" th:content="|${staticUrl}assets/og-image.png|">
 
     <!-- favicon -->
     <link rel="icon" th:href="${staticUrl} + 'assets/favicon.ico'">
@@ -26,15 +24,13 @@
 
     <!-- stylesheet -->
     <link rel="stylesheet" th:href="${staticUrl} + 'css/style.css'">
-
-    <!-- google ads -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3480088971158917"
-            crossorigin="anonymous"></script>
 </head>
 
 <body>
 <header>
-    <h1 onclick="loadPage('domainSearch')">NullDNS</h1>
+    <h1 onclick="loadPage('domainSearch')">
+        <span class="brand-null">Null</span>DNS
+    </h1>
     <nav>
         <a href="#" onclick="loadPage('domainSearch')">도메인 검색</a>
         <a href="#" onclick="loadPage('domainList')">도메인 관리</a>
@@ -43,25 +39,15 @@
 </header>
 
 <main id="content">
-    <section id="seo-default">
-        <h1>무료 서브도메인 등록 및 관리 서비스</h1>
-
-        <p>
-            NullDNS는 도메인 없이 무료로 서브도메인을 등록하고 관리할 수 있는 서비스다.
-            개인 사용자와 개발자를 위한 간편한 DNS 관리 플랫폼을 제공한다.
-        </p>
-
-        <h2>주요 기능</h2>
-        <ul>
-            <li>무료 서브도메인 등록</li>
-            <li>서브도메인 및 DNS 관리</li>
-            <li>도메인 없이 즉시 사용 가능</li>
-        </ul>
-    </section>
+    <h2>도메인 검색</h2>
+    <input type="text" id="searchInput" placeholder="원하는 이름만 입력 (예: myserver)">
+    <button onclick="searchDomain()">검색</button>
+    <div id="searchResult" class="list"></div>
 </main>
 
 <div class="service-info">
-    <h3>서비스 안내</h3>
+    <h1>서비스 안내</h1>
+    <p><a th:href="${staticUrl} + 'Term.txt'">도메인 종류 및 정보</a>를 통해 갱신 예정이 없는 도메인을 알 수 있습니다.</p>
     <ul>
         <li>
             <strong>Notice:</strong> 본 서비스의 모든 기능(로그인, 검색 등) 이용 시
@@ -75,6 +61,7 @@
         <li>만료일이 1달 남은 시점에서 갱신이 가능합니다.</li>
         <li>도메인 이름은 4자 이상 63자 이하의 소문자, 대문자, 숫자, 하이픈(-)만 사용할 수 있습니다.</li>
         <li>특수문자나 공백은 허용되지 않으며, 하이픈(-)은 도메인 이름의 처음과 끝에 올 수 없고 연속으로 사용할 수 없습니다.</li>
+        <li>A, AAAA, CNAME, TXT 타입을 사용할 수 있습니다.</li>
     </ul>
     <ul>
         <li>
@@ -88,5 +75,9 @@
 <script th:inline="javascript">
     const staticUrl = [[${staticUrl}]];
 </script>
+
+<!-- google ads -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3480088971158917"
+            crossorigin="anonymous"></script>
 </body>
 </html>

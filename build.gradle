@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'top.nulldns'
-version = '1.0.0'
+version = '1.0.1'
 description = 'sub-dns'
 
 java {
@@ -24,9 +24,15 @@ repositories {
     mavenCentral()
 }
 
+processResources {
+    exclude("static/ObS/**")
+    exclude("application-dev.properties")
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    //implementation 'ch.qos.logback:logback-classic'
+    //implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
     implementation 'org.springframework.session:spring-session-data-redis'

@@ -1,7 +1,9 @@
 package top.nulldns.subdns.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import top.nulldns.subdns.dao.HaveSubDomain;
 
 import java.time.LocalDate;
@@ -27,4 +29,12 @@ public interface HaveSubDomainRepository extends JpaRepository<HaveSubDomain, Lo
     boolean existsByFullDomain(String fullDomain);
 
     void deleteAllByMemberId(Long memberId);
+
+    @Modifying
+    @Query("""
+    DELETE FROM HaveSubDomain h
+    WHERE h.fullDomain = :domain
+       OR h.fullDomain LIKE CONCAT('%.', :domain)
+    """)
+    int deleteByDomain(@Param("domain") String domain);
 }

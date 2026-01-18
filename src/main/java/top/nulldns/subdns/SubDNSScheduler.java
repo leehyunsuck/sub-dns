@@ -26,7 +26,7 @@ public class SubDNSScheduler {
     private static final String LOCK_KEY = "scheduler:delete-expiry-domain";
     private static final Duration LOCK_TTL = Duration.ofSeconds(55);
 
-    @Scheduled(cron = "0 0 0 * * *")
+    @Scheduled(cron = "0 5 0 * * *")
     //@Scheduled(cron = "0 * * * * *")
     public void deleteExpiryDomain() {
         Boolean locked = redisTemplate.opsForValue().setIfAbsent(LOCK_KEY, "LOCKED", LOCK_TTL);
@@ -40,14 +40,14 @@ public class SubDNSScheduler {
         } catch (Exception e) {
             log.error("만료된 서브도메인 삭제 스케줄러 실행 중 오류 발생", e);
         } finally {
-            redisTemplate.delete(LOCK_KEY);
+            //redisTemplate.delete(LOCK_KEY);
         }
     }
 
     private void runDeleteExpiryDomain() {
         List<HaveSubDomain> deleteList = haveSubDomainRepository.findByExpiryDateBefore(LocalDate.now());
 
-        log.debug("만료된 서브도메인 삭제 스케줄러 실행: 삭제 대상 {}개", deleteList.size());
+        log.info("만료된 서브도메인 삭제 스케줄러 실행: 삭제 대상 {}개", deleteList.size());
         if (deleteList.isEmpty()) {
             return;
         }

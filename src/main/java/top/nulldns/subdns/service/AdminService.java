@@ -17,24 +17,30 @@ import java.util.Set;
 @Slf4j
 public class AdminService {
     private final AdminRepository adminRepository;
+    private final HaveSubDomainService haveSubDomainService;
+    private final PDNSService pdnsService;
     private Set<Long> adminSet;
 
     @PostConstruct
     private void init() {
         adminSet = new HashSet<>();
-        refreshAdminSet();
+        if (!refreshAdminSet()) {
+            log.error("관리자 목록 초기화에 실패하였습니다.");
+        }
     }
 
     @Scheduled(cron = "0 0 0 * * ?")
     public void sheduledRefresh() {
-        refreshAdminSet();
+        if (!refreshAdminSet()) {
+            log.error("관리자 목록 갱신에 실패하였습니다.");
+        }
     }
 
     public boolean isAdmin(Long memberId) {
         return memberId != null && adminSet.contains(memberId);
     }
 
-    private void refreshAdminSet() {
+    private boolean refreshAdminSet() {
         try {
             List<Admin> admins = adminRepository.findAll();
 
@@ -43,8 +49,22 @@ public class AdminService {
                 newAdminSet.add(admin.getMember().getId());
             }
             adminSet = Set.copyOf(newAdminSet);
+
+            return true;
         } catch (Exception e) {
             log.error("관리자 목록 갱신 중 에러 발생", e);
+            return false;
         }
+    }
+
+    public boolean deleteEndsWithZone(String zone) {
+        if (zone == null || zone.isBlank()) {
+            return false;
+        }
+
+        haveSubDomainService.deleteEndsWithDomain(zone);
+        pdnsService.deleteZone(zone);
+
+        return true;
     }
 }

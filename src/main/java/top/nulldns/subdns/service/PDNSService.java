@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
@@ -33,7 +34,7 @@ public class PDNSService {
     private final MemberRepository memberRepository;
     private final HaveSubDomainRepository haveSubDomainRepository;
     private final RestClient.Builder restClientBuilder;
-    private final AdminService adminService;
+    private final CheckAdminService checkAdminService;
     private final StringRedisTemplate redisTemplate;
 
     private static final Duration LOCK_TTL = Duration.ofSeconds(55);
@@ -78,23 +79,17 @@ public class PDNSService {
     /**
      * 특정 풀 도메인(서브 + 존) 레코드 검색 (모든 타입)
      * @param fullDomain example.nulldns.top, www.example.com 등
-     * @return ResultMessageDTO<List<PDNSDto.SearchResult>> {boolean pass, String message, T data}
+     * @return List<PDNSDto.SearchResult> {name, type, content}
      */
-    public ResultMessageDTO<List<PDNSDto.SearchResult>> searchResultList(String fullDomain) {
-        try {
-            List<PDNSDto.SearchResult> result = restClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/search-data")
-                            .queryParam("q", fullDomain)  // 혹은 서브도메인만
-                            .queryParam("object_type", "record")
-                            .build())
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<>() {});
-
-            return ResultMessageDTO.<List<PDNSDto.SearchResult>>builder().pass(true).data(result).build();
-        } catch (Exception e) {
-            return ResultMessageDTO.<List<PDNSDto.SearchResult>>builder().pass(false).message("PowerDNS API 통신 중 에러 발생").build();
-        }
+    public List<PDNSDto.SearchResult> searchResultList(String fullDomain) {
+        return restClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/search-data")
+                        .queryParam("q", fullDomain)  // 혹은 서브도메인만
+                        .queryParam("object_type", "record")
+                        .build())
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
     }
 
     /**
@@ -104,21 +99,21 @@ public class PDNSService {
      * @param type      A, CNAME, TXT 등
      * @param content   레코드 값
      * @param memberId  memberId
-     * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
+     * @return boolean 성공 여부
      */
-    public ResultMessageDTO<Void> addRecord(String subDomain, String zone, String type, String content, Long memberId) {
+    public boolean addRecord(String subDomain, String zone, String type, String content, Long memberId) {
         zone = zone.toLowerCase().trim();
         subDomain = subDomain.toLowerCase().trim();
         type = type.toUpperCase().trim();
 
-        boolean isAdmin = adminService.isAdmin(memberId);
+        boolean isAdmin = checkAdminService.isAdmin(memberId);
 
         // 최대 레코드 수 체크
         Member member = null;
         try {
             member = memberRepository.findById(memberId).orElseThrow();
         } catch (NoSuchElementException e) {
-            return ResultMessageDTO.<Void>builder().pass(false).message("세션에 저장된 유저 정보가 DB에 존재하지 않음").build();
+            return false;
         }
 
         int maxRecords = member.getMaxRecords(),
@@ -127,11 +122,11 @@ public class PDNSService {
         try {
             currentRecords = haveSubDomainRepository.countDistinctFullDomainByMemberId(memberId);
         } catch (Exception e) {
-            return ResultMessageDTO.<Void>builder().pass(false).message("유저의 현재 등록된 전체 레코드 수 조회 중 에러 발생").build();
+            return false;
         }
 
         if (!isAdmin && currentRecords >= maxRecords) {
-            return ResultMessageDTO.<Void>builder().pass(false).message("최대 레코드 수 초과").build();
+            return false;
         }
 
         LocalDate firstRecordExpiryDate = null;
@@ -140,11 +135,14 @@ public class PDNSService {
         boolean hasCNAME = false;
         boolean runDelete = false;
 
-        ResultMessageDTO<List<PDNSDto.SearchResult>> searchResultDTO = searchResultList(subDomain + "." + zone);
-        if (!searchResultDTO.isPass()) {
-            return ResultMessageDTO.<Void>builder().pass(false).message("기존 레코드 검색 중 에러 발생").build();
+        List<PDNSDto.SearchResult> searchResultDTO = List.of();
+        try {
+            searchResultDTO = searchResultList(subDomain + "." + zone);
+        } catch (Exception e) {
+            return false;
         }
-        for (PDNSDto.SearchResult record : searchResultDTO.getData()) {
+
+        for (PDNSDto.SearchResult record : searchResultDTO) {
             if (record.getType().equalsIgnoreCase("CNAME")) {
                 hasCNAME = true;
                 break;
@@ -169,14 +167,14 @@ public class PDNSService {
             if (runDelete) {
                 log.debug("AddRecord - TYPE == CNAME - Delete all existing records");
                 if (!deleteAllSubRecords(subDomain, zone, memberId).isPass()) {
-                    return ResultMessageDTO.<Void>builder().pass(false).message("기존 레코드 삭제 중 에러 발생").build();
+                    return false;
                 }
             }
 
             // PowerDNS 등록
             ResultMessageDTO<Void> pdnsResult = modifyRecord(zone, subDomain, type, content, "REPLACE", isAdmin);
             if (!pdnsResult.isPass()) {
-                return ResultMessageDTO.<Void>builder().pass(false).message(pdnsResult.getMessage()).build();
+                return false;
             }
 
             // DB 등록
@@ -190,7 +188,7 @@ public class PDNSService {
                         .build();
                 haveSubDomainRepository.save(haveSubDomain);
 
-                return ResultMessageDTO.<Void>builder().pass(true).build();
+                return true;
             } catch (Exception e) {
                 // DB 등록 실패 시 PowerDNS에서 삭제
                 log.error("DB 등록 중 에러 발생, PowerDNS에서 레코드 삭제 시도", e);
@@ -199,7 +197,7 @@ public class PDNSService {
             }
         } catch (Exception e) {
             log.error("레코드 등록 중 에러 발생", e);
-            return ResultMessageDTO.<Void>builder().pass(false).message(e.getMessage()).build();
+            return false;
         }
     }
 
@@ -280,7 +278,7 @@ public class PDNSService {
         }
         
         // 삭제 진행
-        boolean isAdmin = adminService.isAdmin(member.getId());
+        boolean isAdmin = checkAdminService.isAdmin(member.getId());
         ResultMessageDTO<Void> pdnsResult = modifyRecord(zone, subDomain, type, null, "DELETE", isAdmin);
         if (!pdnsResult.isPass()) {
             return pdnsResult;

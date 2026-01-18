@@ -12,6 +12,7 @@ import top.nulldns.subdns.dto.ResultMessageDTO;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.service.AdminService;
+import top.nulldns.subdns.service.CheckAdminService;
 import top.nulldns.subdns.service.HaveSubDomainService;
 import top.nulldns.subdns.service.PDNSService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
@@ -27,6 +28,7 @@ public class PDNSRestController {
     private final AdminService adminService;
     private final HaveSubDomainRepository haveSubDomainRepository;
     private final HaveSubDomainService haveSubDomainService;
+    private final CheckAdminService checkAdminService;
 
     private boolean isLoggedIn(HttpSession session) {
         return session.getAttribute("memberId") != null && session.getAttribute("id") != null;
@@ -122,17 +124,17 @@ public class PDNSRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        ResultMessageDTO<List<PDNSDto.SearchResult>> searchResult = pdnsService.searchResultList(fullDomain);
-        if (!searchResult.isPass()) {
+        List<PDNSDto.SearchResult> searchResult = pdnsService.searchResultList(fullDomain);
+        if (searchResult.isEmpty()) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 
-        return ResponseEntity.ok(searchResult.getData());
+        return ResponseEntity.ok(searchResult);
     }
 
     @GetMapping("/available-domains/{subDomain}")
     public ResponseEntity<PDNSDto.CanAddSubDomainZones> availableDomains(@PathVariable String subDomain, HttpSession session) {
-        boolean isAdmin = adminService.isAdmin((Long) session.getAttribute("memberId"));
+        boolean isAdmin = checkAdminService.isAdmin((Long) session.getAttribute("memberId"));
 
         boolean isAllowDomain = isAdmin ? PDNSRecordValidator.isValidLabelAdmin(subDomain)
                                         : PDNSRecordValidator.isValidLabel(subDomain);
@@ -162,18 +164,16 @@ public class PDNSRestController {
     }
 
     @PostMapping("/add-record")
-    public ResponseEntity<String> addRecord(@RequestBody PDNSDto.AddRecordRequest request, HttpSession session) {
+    public ResponseEntity<Void> addRecord(@RequestBody PDNSDto.AddRecordRequest request, HttpSession session) {
         if (!isLoggedIn(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         Long memberId = (Long) session.getAttribute("memberId");
 
-        ResultMessageDTO<Void> result = pdnsService.addRecord(request.getSubDomain(), request.getZone(), request.getType(), request.getContent(), memberId);
-        if (result.isPass()) {
-            return ResponseEntity.status(HttpStatus.CREATED).build();
-        }
+        boolean result = pdnsService.addRecord(request.getSubDomain(), request.getZone(), request.getType(), request.getContent(), memberId);
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(result.getMessage());
+        return result ? ResponseEntity.status(HttpStatus.CREATED).build()
+                      : ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 }
 

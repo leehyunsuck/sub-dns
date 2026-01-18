@@ -7,10 +7,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 import top.nulldns.subdns.service.AdminService;
+import top.nulldns.subdns.service.CheckAdminService;
 
 @RestController
 @AllArgsConstructor
 public class AdminController {
+    private final CheckAdminService checkAdminService;
     private final AdminService adminService;
 
     @PostMapping("/admin/deleteZone")
@@ -18,7 +20,7 @@ public class AdminController {
         if (zone == null || zone.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        if (!adminService.isAdmin((Long) session.getAttribute("memberId"))) {
+        if (!checkAdminService.isAdmin((Long) session.getAttribute("memberId"))) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

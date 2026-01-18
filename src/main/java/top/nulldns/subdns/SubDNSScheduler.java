@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.service.AdminService;
+import top.nulldns.subdns.service.CheckAdminService;
 import top.nulldns.subdns.service.PDNSService;
 
 import java.time.Duration;
@@ -20,8 +21,8 @@ import java.util.List;
 public class SubDNSScheduler {
     private final HaveSubDomainRepository haveSubDomainRepository;
     private final PDNSService pdnsService;
-    private final AdminService adminService;
     private final StringRedisTemplate redisTemplate;
+    private final CheckAdminService checkAdminService;
 
     private static final String LOCK_KEY = "scheduler:delete-expiry-domain";
     private static final Duration LOCK_TTL = Duration.ofSeconds(55);
@@ -39,8 +40,6 @@ public class SubDNSScheduler {
             runDeleteExpiryDomain();
         } catch (Exception e) {
             log.error("만료된 서브도메인 삭제 스케줄러 실행 중 오류 발생", e);
-        } finally {
-            //redisTemplate.delete(LOCK_KEY);
         }
     }
 
@@ -57,7 +56,7 @@ public class SubDNSScheduler {
         log.info("만료된 서브도메인 {}개 삭제 시작", deleteList.size());
         for (HaveSubDomain domain : deleteList) {
 
-            if (adminService.isAdmin(domain.getMember().getId())) {
+            if (checkAdminService.isAdmin(domain.getMember().getId())) {
                 log.info("관리자 계정의 서브도메인 {}은 삭제하지 않음", domain.getFullDomain());
                 adminCount++;
                 continue;

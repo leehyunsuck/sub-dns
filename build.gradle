@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'top.nulldns'
-version = '1.0.1'
+version = '1.0.2'
 description = 'sub-dns'
 
 java {

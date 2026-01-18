@@ -44,7 +44,7 @@ public class PDNSService {
     private String pdnsApiKey;
     private RestClient restClient;
     @Getter
-    private List<PDNSDto.ZoneName> cachedZoneNames;
+    private List<PDNSDto.ZoneName> cachedZoneNames = List.of();
 
     @PostConstruct
     private void init() {
@@ -55,7 +55,7 @@ public class PDNSService {
 
         ResultMessageDTO<List<PDNSDto.ZoneName>> result = getZoneNameList();
         if (result.isPass()) {
-            this.cachedZoneNames = getZoneNameList().getData();
+            this.cachedZoneNames = result.getData();
         } else {
             log.error("초기 Zone Name 목록 갱신 중 에러 발생: " + result.getMessage());
             this.cachedZoneNames = new ArrayList<>();
@@ -463,4 +463,20 @@ public class PDNSService {
 
         return true;
     }
+
+    public boolean deleteZone(String zoneName) {
+        try {
+            ResponseEntity<Void> response = restClient.delete()
+                    .uri("/servers/localhost/zones/{zone}.", zoneName)
+                    .header("X-API-Key", pdnsApiKey)
+                    .retrieve()
+                    .toBodilessEntity();
+
+            return response.getStatusCode().is2xxSuccessful();
+        } catch (Exception e) {
+            log.error("Zone 삭제 중 에러 발생: " + zoneName, e);
+            return false;
+        }
+    }
+
 }

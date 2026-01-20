@@ -35,11 +35,7 @@ public class HaveSubDomainService {
     }
 
     public void deleteEndsWithDomain(String domain) {
-        try {
-            int deleteCount = haveSubDomainRepository.deleteByDomain(domain);
-            log.info("도메인 및 하위 도메인 삭제 완료: {} (삭제된 레코드 수: {})", domain, deleteCount);
-        } catch (Exception e) {
-            log.error("도메인 삭제 중 오류 발생: " + domain, e);
-        }
+        int deleteCount = haveSubDomainRepository.deleteByDomain(domain);
+        log.info("도메인 및 하위 도메인 삭제 완료: {} (삭제된 레코드 수: {})", domain, deleteCount);
     }
 }

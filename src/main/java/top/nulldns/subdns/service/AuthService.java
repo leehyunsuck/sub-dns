@@ -28,7 +28,7 @@ public class AuthService {
 
     @Transactional
     public void deleteUserAndData(Long memberId) {
-        pdnsService.deleteAllSubRecordsByMemberId(memberId);
+        pdnsService.deleteAllSubRecords(memberId);
         haveSubDomainRepository.deleteAllByMemberId(memberId);
         memberRepository.deleteById(memberId);
     }

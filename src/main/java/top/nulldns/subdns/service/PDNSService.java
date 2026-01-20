@@ -5,7 +5,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
@@ -93,111 +92,102 @@ public class PDNSService {
     }
 
     /**
+     * 멤버의 최대 레코드 수 초과 체크
+     * @param member   멤버 정보
+     * @return boolean 최대 레코드 수 초과 여부
+     */
+    private boolean checkMaxRecords(Member member) {
+        int currentRecords = haveSubDomainRepository.countDistinctFullDomainByMemberId(member.getId());
+
+        return currentRecords < member.getMaxRecords();
+    }
+
+    /**
+     * 특정 서브 도메인에 CNAME 레코드 존재 여부 체크
+     * @param subDomain example, www 등
+     * @param zone      nulldns.top, example.com 등
+     * @return boolean  CNAME 레코드 존재 여부
+     */
+    private boolean checkAlreadyCNAME(String subDomain, String zone) {
+        for (PDNSDto.SearchResult record : searchResultList(subDomain + "." + zone)) {
+            if (record.getType().equalsIgnoreCase("CNAME")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 특정 서브 도메인의 첫 레코드 만료일 조회
+     * @param memberId   멤버 ID
+     * @param subDomain  example, www 등
+     * @param zone       nulldns.top, example.com 등
+     * @return LocalDate 첫 레코드 만료일
+     */
+    private LocalDate getExpiryDate(Long memberId, String subDomain, String zone) {
+        return haveSubDomainRepository.findAllByMemberIdAndFullDomain(memberId, subDomain + "." + zone).getFirst().getExpiryDate();
+    }
+
+    /**
      * 레코드 추가
      * @param subDomain example, www 등
      * @param zone      nulldns.top, example.com 등
      * @param type      A, CNAME, TXT 등
      * @param content   레코드 값
      * @param memberId  memberId
-     * @return boolean 성공 여부
      */
-    public boolean addRecord(String subDomain, String zone, String type, String content, Long memberId) {
+    public void addRecord(String subDomain, String zone, String type, String content, Long memberId) {
         zone = zone.toLowerCase().trim();
         subDomain = subDomain.toLowerCase().trim();
         type = type.toUpperCase().trim();
 
         boolean isAdmin = checkAdminService.isAdmin(memberId);
 
-        // 최대 레코드 수 체크
-        Member member = null;
-        try {
-            member = memberRepository.findById(memberId).orElseThrow();
-        } catch (NoSuchElementException e) {
-            return false;
-        }
+        Member member = memberRepository.findById(memberId).orElseThrow(
+                () -> new NoSuchElementException("해당 memberId의 멤버가 존재하지 않음")
+        );
 
-        int maxRecords = member.getMaxRecords(),
-            currentRecords = 0;
-
-        try {
-            currentRecords = haveSubDomainRepository.countDistinctFullDomainByMemberId(memberId);
-        } catch (Exception e) {
-            return false;
-        }
-
-        if (!isAdmin && currentRecords >= maxRecords) {
-            return false;
-        }
-
-        LocalDate firstRecordExpiryDate = null;
-        boolean hasAny = haveSubDomainRepository.existsByFullDomain(subDomain + "." + zone);
-        boolean isTypeCNAME = type.equalsIgnoreCase("CNAME");
-        boolean hasCNAME = false;
-        boolean runDelete = false;
-
-        List<PDNSDto.SearchResult> searchResultDTO = List.of();
-        try {
-            searchResultDTO = searchResultList(subDomain + "." + zone);
-        } catch (Exception e) {
-            return false;
-        }
-
-        for (PDNSDto.SearchResult record : searchResultDTO) {
-            if (record.getType().equalsIgnoreCase("CNAME")) {
-                hasCNAME = true;
-                break;
+        // 최대 레코드수 체크
+        if (!isAdmin) {
+            if (!checkMaxRecords(member)) {
+                throw new IllegalStateException("최대 레코드 수 초과");
             }
         }
-        if (hasAny) {
-            firstRecordExpiryDate = haveSubDomainRepository.findAllByMemberIdAndFullDomain(memberId, subDomain + "." + zone).getFirst().getExpiryDate();
-        }
-        if (isAdmin) {
-            firstRecordExpiryDate = LocalDate.now().plusYears(999);
+
+        boolean existsFullDomain = haveSubDomainRepository.existsByFullDomain(subDomain + "." + zone),
+                isTypeCNAME      = type.equalsIgnoreCase("CNAME"),
+                alreadyCNAME     = checkAlreadyCNAME(subDomain, zone);
+
+        LocalDate expiryDate = isAdmin ? LocalDate.now().plusYears(999)
+                                        : existsFullDomain ? getExpiryDate(memberId, subDomain, zone)
+                                                 : null;
+
+        // CNAME 레코드는 단독으로만 존재 가능
+        if ( (isTypeCNAME && existsFullDomain) || (!isTypeCNAME && alreadyCNAME)) {
+            deleteAllSubRecords(subDomain, zone, memberId);
         }
 
-        // CNAME 을 등록하거나, 등록되어있는데 다른 타입을 등록하면 기존 레코드 삭제
-        if (isTypeCNAME && hasAny) {
-            runDelete = true;
-        }
-        if (!isTypeCNAME && hasCNAME) {
-            runDelete = true;
+        // PowerDNS 등록
+        modifyRecord(zone, subDomain, type, content, "REPLACE", isAdmin);
+
+        // DB 등록
+        HaveSubDomain.HaveSubDomainBuilder builder = HaveSubDomain.builder()
+                .member(member)
+                .fullDomain(subDomain + "." +  zone)
+                .recordType(type)
+                .content(content);
+        if (expiryDate != null) {
+            builder.expiryDate(expiryDate);
         }
 
         try {
-            if (runDelete) {
-                log.debug("AddRecord - TYPE == CNAME - Delete all existing records");
-                if (!deleteAllSubRecords(subDomain, zone, memberId).isPass()) {
-                    return false;
-                }
-            }
-
-            // PowerDNS 등록
-            ResultMessageDTO<Void> pdnsResult = modifyRecord(zone, subDomain, type, content, "REPLACE", isAdmin);
-            if (!pdnsResult.isPass()) {
-                return false;
-            }
-
-            // DB 등록
-            try {
-                HaveSubDomain haveSubDomain = HaveSubDomain.builder()
-                        .member(member)
-                        .fullDomain(subDomain + "." +  zone)
-                        .recordType(type)
-                        .content(content)
-                        .expiryDate(firstRecordExpiryDate)
-                        .build();
-                haveSubDomainRepository.save(haveSubDomain);
-
-                return true;
-            } catch (Exception e) {
-                // DB 등록 실패 시 PowerDNS에서 삭제
-                log.error("DB 등록 중 에러 발생, PowerDNS에서 레코드 삭제 시도", e);
-                deleteRecord(zone, subDomain, type, memberId);
-                throw new Exception("저장 실패한 레코드 정보 : " + subDomain + "." + zone + " " + type + " " + content, e);
-            }
-        } catch (Exception e) {
-            log.error("레코드 등록 중 에러 발생", e);
-            return false;
+            haveSubDomainRepository.save(builder.build());
+        } catch (RuntimeException e) {
+            // DB 등록 실패 시 PowerDNS에서 삭제
+            log.error("DB 등록 중 에러 발생, PowerDNS에서 레코드 삭제 시도", e);
+            deleteRecord(zone, subDomain, type, memberId);
+            throw e;
         }
     }
 
@@ -206,47 +196,52 @@ public class PDNSService {
      * @param zone          nulldns.top, example.com 등
      * @param subDomain     example, www 등
      * @param memberId      memberId
-     * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
-    public ResultMessageDTO<Void> deleteAllSubRecords(String subDomain, String zone, Long memberId) {
-        log.debug("deleteAllSubRecords called for {}.{}", subDomain, zone);
-
+    public void deleteAllSubRecords(String subDomain, String zone, Long memberId) {
         List<HaveSubDomain> haveSubDomainList = haveSubDomainRepository.findAllByMemberIdAndFullDomain(memberId, subDomain + "." + zone);
-        log.debug("Found {} records to delete", haveSubDomainList.size());
-        if (haveSubDomainList.isEmpty()) {
-            log.debug("No records found to delete for {}.{}", subDomain, zone);
-            return ResultMessageDTO.<Void>builder().pass(true).message("삭제하려는 레코드가 DB에 존재하지 않음").build(); // 로직상 PDNS에서는 삭제됐으니 pass = true
-        }
 
-        for (HaveSubDomain haveSubDomain : haveSubDomainList) {
-            ResultMessageDTO<Void> result = deleteRecord(zone, subDomain, haveSubDomain.getRecordType(), memberId);
-
-            if (!result.isPass()) {
-                return result;
-            }
-        }
-        return ResultMessageDTO.<Void>builder().pass(true).build();
+        haveSubDomainRepository.deleteAll(haveSubDomainList);
     }
 
-    public void deleteAllSubRecordsByMemberId(Long memberId) {
-        List<HaveSubDomain> haveSubDomainList = haveSubDomainRepository.findByMemberId(memberId);
-        log.debug("Found {} records to delete for memberId {}", haveSubDomainList.size(), memberId);
-        if (haveSubDomainList.isEmpty()) {
-            return;
+    /**
+     * 멤버의 모든 서브 도메인 레코드 삭제
+     * @param memberId  memberId
+     */
+    public void deleteAllSubRecords(Long memberId) {
+        for (HaveSubDomain haveSubDomain : haveSubDomainRepository.findByMemberId(memberId)) {
+            String[] domainParts = haveSubDomain.getFullDomain().split("\\.");
+
+            String subDomain = getSubDomainPart(domainParts),
+                   zone = getZonePart(domainParts);
+
+            deleteRecord(zone, subDomain, haveSubDomain.getRecordType(), memberId);
         }
+    }
 
-        for (HaveSubDomain haveSubDomain : haveSubDomainList) {
-            String[] domainParts = haveSubDomain.getFullDomain().split("\\.", 2);
+    /**
+     * 존 부분 반환 (존 부분은 항상 도메인의 마지막 두 부분이라고 가정)
+     * @param domainParts 도메인 부분 배열
+     * @return 존 부분 문자열
+     */
+    private String getZonePart(String[] domainParts) {
+        int len = domainParts.length;
+        return domainParts[len - 2] + "." + domainParts[len - 1];
+    }
 
-            String subDomain = domainParts[0];
-            String zone = domainParts[1];
-
-            ResultMessageDTO<Void> result = deleteRecord(zone, subDomain, haveSubDomain.getRecordType(), memberId);
-
-            if (!result.isPass()) {
-                log.error("모든 서브 레코드 삭제 중 에러 발생. DB에서는 삭제 진행예정\n도메인 정보: {}\nmemberId: {}", haveSubDomain, memberId);
+    /**
+     * 서브 도메인 부분 반환 (존 부분을 제외한 나머지 부분) (존 부분은 항상 도메인의 마지막 두 부분이라고 가정)
+     * @param domainParts 도메인 부분 배열
+     * @return 서브 도메인 부분 문자열
+     */
+    private String getSubDomainPart(String[] domainParts) {
+        StringBuilder subDomain = new StringBuilder();
+        for (int i = 0; i < domainParts.length - 2; i++) {
+            if (i > 0) {
+                subDomain.append(".");
             }
+            subDomain.append(domainParts[i]);
         }
+        return subDomain.toString();
     }
 
     /**
@@ -462,19 +457,11 @@ public class PDNSService {
         return true;
     }
 
-    public boolean deleteZone(String zoneName) {
-        try {
-            ResponseEntity<Void> response = restClient.delete()
-                    .uri("/servers/localhost/zones/{zone}.", zoneName)
-                    .header("X-API-Key", pdnsApiKey)
-                    .retrieve()
-                    .toBodilessEntity();
-
-            return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception e) {
-            log.error("Zone 삭제 중 에러 발생: " + zoneName, e);
-            return false;
-        }
+    public void deleteZone(String zoneName) {
+        restClient.delete()
+                .uri("/servers/localhost/zones/{zone}.", zoneName)
+                .header("X-API-Key", pdnsApiKey)
+                .retrieve()
+                .toBodilessEntity();
     }
-
 }

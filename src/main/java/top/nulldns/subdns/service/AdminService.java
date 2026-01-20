@@ -24,8 +24,8 @@ public class AdminService {
             return false;
         }
 
-        haveSubDomainService.deleteEndsWithDomain(zone);
         pdnsService.deleteZone(zone);
+        haveSubDomainService.deleteEndsWithDomain(zone);
 
         return true;
     }

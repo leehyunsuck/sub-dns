@@ -66,21 +66,20 @@ public class PDNSRestController {
         if (!isLoggedIn(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+
         Long memberId = (Long) session.getAttribute("memberId");
         if (!pdnsService.isDomainOwner(memberId, subDomain + "." + zone)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         try {
-            ResultMessageDTO<Void> deleteResult = pdnsService.deleteAllSubRecords(subDomain, zone, memberId);
-            if (deleteResult.isPass()) {
-                return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
-            }
+            pdnsService.deleteAllSubRecords(subDomain, zone, memberId);
         } catch (Exception e) {
-            log.error("도메인 삭제 요청 중 에러 발생", e);
-
+            log.error("서브도메인 삭제 요청 중 에러 발생", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
     @GetMapping("/my-domains")
@@ -170,10 +169,17 @@ public class PDNSRestController {
         }
         Long memberId = (Long) session.getAttribute("memberId");
 
-        boolean result = pdnsService.addRecord(request.getSubDomain(), request.getZone(), request.getType(), request.getContent(), memberId);
+        try {
+            pdnsService.addRecord(request.getSubDomain(), request.getZone(), request.getType(), request.getContent(), memberId);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build(); // 레코드 수 제한 초과
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
 
-        return result ? ResponseEntity.status(HttpStatus.CREATED).build()
-                      : ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 }
 

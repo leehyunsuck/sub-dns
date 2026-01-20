@@ -7,13 +7,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import top.nulldns.subdns.dto.PDNSDto;
-import top.nulldns.subdns.dto.ResultMessageDTO;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
@@ -24,6 +23,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 @Service
@@ -46,6 +46,9 @@ public class PDNSService {
     @Getter
     private List<PDNSDto.ZoneName> cachedZoneNames = List.of();
 
+    /**
+     * 초기화 메서드
+     */
     @PostConstruct
     private void init() {
         this.restClient = restClientBuilder
@@ -62,8 +65,11 @@ public class PDNSService {
         }
     }
 
+    /**
+     * 정기 Zone Name 목록 갱신
+     */
     @Scheduled(cron = "0 0 0 * * ?")
-    private void sheduledRefresh() {
+    private void scheduledRefresh() {
         try {
             this.cachedZoneNames = getZoneNameList();
         } catch (Exception e) {
@@ -134,9 +140,9 @@ public class PDNSService {
      * @param memberId  memberId
      */
     public void addRecord(String subDomain, String zone, String type, String content, Long memberId) {
-        zone = zone.toLowerCase().trim();
-        subDomain = subDomain.toLowerCase().trim();
-        type = type.toUpperCase().trim();
+        zone = zone.toLowerCase();
+        subDomain = subDomain.toLowerCase();
+        type = type.toUpperCase();
 
         boolean isAdmin = checkAdminService.isAdmin(memberId);
 
@@ -192,7 +198,6 @@ public class PDNSService {
      */
     public void deleteAllSubRecords(String subDomain, String zone, Long memberId) {
         List<HaveSubDomain> haveSubDomainList = haveSubDomainRepository.findAllByMemberIdAndFullDomain(memberId, subDomain + "." + zone);
-
         haveSubDomainRepository.deleteAll(haveSubDomainList);
     }
 
@@ -282,112 +287,97 @@ public class PDNSService {
     }
 
     /**
+     * 타입에 따른 content 수정
+     * @param type      A, CNAME, TXT 등
+     * @param content   레코드 값
+     * @return String   수정된 content 값
+     */
+    private String modifyContentByType(String type, String content) {
+        if (type.equals("TXT")) {
+            if (content.charAt(0) != '"') content = "\"" + content;
+            if (content.charAt(content.length() - 1) != '"') content = content + "\"";
+        } else if (type.equals("CNAME")) {
+            if (content.charAt(content.length() - 1) != '.') content = content + ".";
+        }
+
+        return content;
+    }
+
+    /**
      * 레코드 수정/삭제 공통 메서드
      * @param zone          nulldns.top, example.com 등
      * @param subDomain     example, www 등
      * @param type          A, CNAME, TXT 등
      * @param content       레코드 값 (삭제 시 null)
      * @param action        REPLACE / DELETE
-     * @return ResultMessageDTO<Void> {boolean pass, String message, T data}
      */
-    private ResultMessageDTO<Void> modifyRecord(String zone, String subDomain, String type, String content, String action, boolean isAdmin) {
-        log.debug("modifyRecord called");
-        log.debug("action {}", action);
+    private void modifyRecord(String zone, String subDomain, String type, String content, String action, boolean isAdmin) {
         if (zone.isEmpty() || subDomain.isEmpty() || type.isEmpty() || action.isEmpty()) {
-            return ResultMessageDTO.<Void>builder().pass(false).message("필수 파라미터 누락").build();
+            throw new IllegalArgumentException("필수 파라미터 누락");
         }
-
         action = action.toUpperCase();
-        log.debug(zone, subDomain, type, action);
 
         if (!action.equals("REPLACE") && !action.equals("DELETE")) {
-            return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 액션입니다.").build();
+            throw new IllegalArgumentException("옳바르지 않은 액션");
         }
 
         // SubDomain 라벨 체크
-        if (isAdmin) {
-            if (!PDNSRecordValidator.isValidLabelAdmin(subDomain)) {
-                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 서브 도메인 입니다.").build();
-            }
-        } else {
-            if (!PDNSRecordValidator.isValidLabel(subDomain)) {
-                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 서브 도메인 입니다.").build();
-            }
+        if (isAdmin && !PDNSRecordValidator.isValidLabelAdmin(subDomain)) {
+            throw new IllegalArgumentException("옳바르지 않은 서브 도메인");
+        } else if (!isAdmin && !PDNSRecordValidator.isValidLabel(subDomain)) {
+            throw new IllegalArgumentException("옳바르지 않은 서브 도메인");
         }
 
-        PDNSDto.Record record = null;
-
-        if (action.equals("REPLACE")) {
-            if (content == null || content.isEmpty()) { // 등록/수정은 content 값이 반드시 필요
-                return ResultMessageDTO.<Void>builder().pass(false).message("등록/수정에 필요한 정보가 누락되었습니다.").build();
-            }
-            if (!PDNSRecordValidator.validate(type, content)) { // type 별 content 유효성 체크
-                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 내용 입니다.").build();
-            }
-
-            if (type.equals("TXT")) {
-                if (content.charAt(0) != '"') {
-                    content = "\"" + content;
-                }
-                if (content.charAt(content.length() - 1) != '"') {
-                    content = content + "\"";
-                }
-            }
-
-            if (type.equals("CNAME")) {
-                // CNAME 은 반드시 . 으로 끝나야 함
-                if (content.charAt(content.length() - 1) != '.') {
-                    content = content + ".";
-                }
-            }
-
-            record = PDNSDto.Record.builder()
-                    .content(content)
-                    .build();
-        } else {
+        List<PDNSDto.Record> records;
+        if (action.equals("DELETE")) {
             if (!PDNSRecordValidator.isValidType(type)) { // 삭제는 type 값만 유효성 체크
-                return ResultMessageDTO.<Void>builder().pass(false).message("옳바르지 않은 타입입니다.").build();
+                throw new IllegalArgumentException("옳바르지 않은 타입");
             }
-        }
+            records = List.of();
+        } else { // REPLACE (등록, 수정)
+            if (content == null || content.isEmpty()) {
+                throw new IllegalArgumentException("등록/수정에 필요한 정보가 누락되었습니다.");
+            }
+            if (!PDNSRecordValidator.validate(type, content)) {
+                throw new IllegalArgumentException("옳바르지 않은 내용");
+            }
+            content = modifyContentByType(type, content);
 
-        log.debug("pass all checks");
+            records = List.of(PDNSDto.Record.builder().content(content).build());
+        }
 
         String fullDomain = subDomain + "." + zone;
+        if (fullDomain.charAt(fullDomain.length() - 1) != '.') {
+            fullDomain = fullDomain + ".";
+        }
 
-        Boolean locked = redisTemplate.opsForValue()
-                .setIfAbsent(fullDomain, "LOCKED", LOCK_TTL);
-
+        // 중복 실행 방지 락 설정
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(fullDomain, "LOCKED", LOCK_TTL);
         if (!Boolean.TRUE.equals(locked)) {
             log.error("modifyRecord 중복 실행 방지: {}.{}", subDomain, zone);
-            return ResultMessageDTO.<Void>builder().pass(false).message("해당 도메인에 대한 작업이 이미 진행 중입니다. 잠시 후 다시 시도해주세요.").build();
+            throw new IllegalStateException("해당 도메인에 대한 작업이 이미 진행 중입니다. 잠시 후 다시 시도해주세요.");
         }
 
+        // 요청 데이터 생성
         PDNSDto.Rrset rrset = PDNSDto.Rrset.builder()
-                .name(subDomain + "." + zone + ".")
+                .name(fullDomain)
                 .type(type)
                 .changeType(action)
-                .records(record == null ? List.of() : List.of(record))
+                .records(records)
                 .build();
 
-        record PatchPayLoad(List<PDNSDto.Rrset> rrsets) {}
+        // 요청 진행
+        restClient.patch().uri("/zones/" + zone)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("rrsets", List.of(rrset)))
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    throw new IllegalStateException("PowerDNS API 통신 중 에러 발생");
+                })
+                .body(Void.class);
 
-        try {
-
-            ResponseEntity<Void> res = restClient.patch()
-                    .uri("/zones/" + zone)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(new PatchPayLoad(List.of(rrset)))
-                    .retrieve()
-                    .toBodilessEntity();
-            log.debug("PowerDNS API response status: {}", res.getStatusCode());
-
-            return ResultMessageDTO.<Void>builder().pass(true).build();
-        } catch (Exception e) {
-            log.error(e.getMessage());
-            return ResultMessageDTO.<Void>builder().pass(false).message("PowerDNS API 통신 중 에러 발생").build();
-        } finally {
-            redisTemplate.delete(fullDomain);
-        }
+        // 락 해제
+        redisTemplate.delete(fullDomain);
     }
 
     /**
@@ -400,7 +390,6 @@ public class PDNSService {
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<PDNSDto.ZoneName>>() {});
 
-
         // PowerDNS API에서 Zone 정보 가져오면 마지막 문자가 . 으로 끝남
         for (PDNSDto.ZoneName zone : zones) {
             String name = zone.getName();
@@ -412,10 +401,21 @@ public class PDNSService {
         return zones;
     }
 
+    /**
+     * 도메인 소유 여부 체크 (풀 도메인)
+     * @param memberId   memberId
+     * @param fullDomain example.nulldns.top, www.example.com 등
+     * @return boolean   도메인 소유 여부
+     */
     public boolean isDomainOwner(Long memberId, String fullDomain) {
         return haveSubDomainRepository.existsHaveSubDomainByMemberIdAndFullDomain(memberId, fullDomain);
     }
 
+    /**
+     * 서브 도메인 만료 삭제 스케줄러용 레코드 삭제 메서드
+     * @param haveSubDomain    삭제할 서브 도메인 정보
+     * @return boolean         삭제 성공 여부
+     */
     public boolean deleteSubRecordSchedule(HaveSubDomain haveSubDomain) {
         Long memberId = haveSubDomain.getMember().getId();
         String[] domainInfo = haveSubDomain.getFullDomain().split("\\.", 2);
@@ -433,11 +433,16 @@ public class PDNSService {
         return true;
     }
 
+    /**
+     * 존 삭제
+     * @param zoneName 존 이름
+     */
     public void deleteZone(String zoneName) {
         restClient.delete()
                 .uri("/servers/localhost/zones/{zone}.", zoneName)
                 .header("X-API-Key", pdnsApiKey)
                 .retrieve()
                 .toBodilessEntity();
+        log.info("존 삭제 완료: {}", zoneName);
     }
 }

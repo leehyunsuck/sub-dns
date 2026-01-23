@@ -31,6 +31,7 @@ import java.util.NoSuchElementException;
 @Slf4j
 public class PDNSService {
     private final MemberRepository memberRepository;
+    private final HaveSubDomainService haveSubDomainService;
     private final HaveSubDomainRepository haveSubDomainRepository;
     private final RestClient.Builder restClientBuilder;
     private final CheckAdminService checkAdminService;
@@ -99,7 +100,7 @@ public class PDNSService {
      * @return boolean 최대 레코드 수 초과 여부
      */
     private boolean checkMaxRecords(Member member) {
-        int currentRecords = haveSubDomainRepository.countDistinctFullDomainByMemberId(member.getId());
+        int currentRecords = haveSubDomainService.getOwnedDomainCount(member.getId());
 
         return currentRecords < member.getMaxRecords();
     }
@@ -121,17 +122,6 @@ public class PDNSService {
     }
 
     /**
-     * 특정 서브 도메인의 첫 레코드 만료일 조회
-     * @param memberId   멤버 ID
-     * @param subDomain  example, www 등
-     * @param zone       nulldns.top, example.com 등
-     * @return LocalDate 첫 레코드 만료일
-     */
-    private LocalDate getExpiryDate(Long memberId, String subDomain, String zone) {
-        return haveSubDomainRepository.findAllByMemberIdAndFullDomain(memberId, subDomain + "." + zone).getFirst().getExpiryDate();
-    }
-
-    /**
      * 레코드 추가
      * @param subDomain example, www 등
      * @param zone      nulldns.top, example.com 등
@@ -150,7 +140,9 @@ public class PDNSService {
                 () -> new NoSuchElementException("해당 memberId의 멤버가 존재하지 않음")
         );
 
-        boolean existsFullDomain = haveSubDomainRepository.existsByFullDomain(subDomain + "." + zone),
+        String fullDomain = subDomain + "." + zone;
+
+        boolean existsFullDomain = haveSubDomainService.isExistFullDomain(fullDomain),
                 isTypeCNAME      = type.equalsIgnoreCase("CNAME"),
                 alreadyCNAME     = checkAlreadyCNAME(subDomain, zone);
 
@@ -167,7 +159,7 @@ public class PDNSService {
         }
 
         LocalDate expiryDate = isAdmin ? LocalDate.now().plusYears(999)
-                                        : existsFullDomain ? getExpiryDate(memberId, subDomain, zone)
+                                        : existsFullDomain ? haveSubDomainService.findExpiryDate(memberId, fullDomain)
                                                  : null;
 
         // CNAME 레코드는 단독으로만 존재 가능
@@ -179,15 +171,9 @@ public class PDNSService {
         modifyRecord(zone, subDomain, type, content, "REPLACE", isAdmin);
 
         // DB 등록
-        HaveSubDomain.HaveSubDomainBuilder builder = HaveSubDomain.builder()
-                .member(member)
-                .fullDomain(subDomain + "." +  zone)
-                .recordType(type)
-                .content(content);
-        if (expiryDate != null) {
-            builder.expiryDate(expiryDate);
-        }
-        haveSubDomainRepository.save(builder.build());
+        haveSubDomainService.addSubDomain(
+                haveSubDomainService.buildHaveSubDomainAddForm(member, subDomain, zone, type, content, expiryDate)
+        );
     }
 
     /**
@@ -304,6 +290,68 @@ public class PDNSService {
     }
 
     /**
+     * 공통 파라미터 체크 메서드
+     * @param zone          nulldns.top, example.com 등
+     * @param subDomain     example, www 등
+     * @param type          A, CNAME, TXT 등
+     * @param action        REPLACE / DELETE
+     * @return boolean      파라미터 유효성 여부
+     */
+    private boolean isValidArguments(String zone, String subDomain, String type, String action, String content) {
+        if (zone.isEmpty() || subDomain.isEmpty() || type.isEmpty() || action.isEmpty()) {
+            return false;
+        }
+        action = action.toUpperCase();
+
+        if (action.equals("DELETE")) {
+            if (!PDNSRecordValidator.isValidType(type)) {
+                return false;
+            }
+        } else if (action.equals("REPLACE")) {
+            if (content == null || content.isEmpty()) {
+                return false;
+            }
+            if (!PDNSRecordValidator.validate(type, content)) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 서브 도메인 라벨 유효성 체크
+     * @param subDomain     example, www 등
+     * @param isAdmin       관리자 여부
+     * @return boolean      라벨 유효성 여부
+     */
+    private boolean isValidLable(String subDomain, boolean isAdmin) {
+        if (isAdmin) {
+            return PDNSRecordValidator.isValidLabelAdmin(subDomain);
+        } else {
+            return PDNSRecordValidator.isValidLabel(subDomain);
+        }
+    }
+
+    /**
+     * PowerDNS용 FQDN 생성
+     * @param subDomain example, www 등
+     * @param zone      nulldns.top, example.com 등
+     * @return String   FQDN 문자열
+     */
+    private String buildFqdnForPowerDns(String subDomain, String zone) {
+        String fqdn = subDomain + "." + zone;
+
+        if (fqdn.charAt(fqdn.length() - 1) != '.') {
+            fqdn = fqdn + ".";
+        }
+
+        return fqdn;
+    }
+
+    /**
      * 레코드 수정/삭제 공통 메서드
      * @param zone          nulldns.top, example.com 등
      * @param subDomain     example, www 등
@@ -312,50 +360,29 @@ public class PDNSService {
      * @param action        REPLACE / DELETE
      */
     private void modifyRecord(String zone, String subDomain, String type, String content, String action, boolean isAdmin) {
-        if (zone.isEmpty() || subDomain.isEmpty() || type.isEmpty() || action.isEmpty()) {
-            throw new IllegalArgumentException("필수 파라미터 누락");
-        }
         action = action.toUpperCase();
-
-        if (!action.equals("REPLACE") && !action.equals("DELETE")) {
-            throw new IllegalArgumentException("옳바르지 않은 액션");
+        if (!isValidArguments(zone, subDomain, type, action, content)) {
+            throw new IllegalArgumentException("옳바르지 않은 파라미터");
         }
 
-        // SubDomain 라벨 체크
-        if (isAdmin && !PDNSRecordValidator.isValidLabelAdmin(subDomain)) {
-            throw new IllegalArgumentException("옳바르지 않은 서브 도메인");
-        } else if (!isAdmin && !PDNSRecordValidator.isValidLabel(subDomain)) {
+        if (!isValidLable(subDomain, isAdmin)) {
             throw new IllegalArgumentException("옳바르지 않은 서브 도메인");
         }
 
         List<PDNSDto.Record> records;
         if (action.equals("DELETE")) {
-            if (!PDNSRecordValidator.isValidType(type)) { // 삭제는 type 값만 유효성 체크
-                throw new IllegalArgumentException("옳바르지 않은 타입");
-            }
             records = List.of();
         } else { // REPLACE (등록, 수정)
-            if (content == null || content.isEmpty()) {
-                throw new IllegalArgumentException("등록/수정에 필요한 정보가 누락되었습니다.");
-            }
-            if (!PDNSRecordValidator.validate(type, content)) {
-                throw new IllegalArgumentException("옳바르지 않은 내용");
-            }
             content = modifyContentByType(type, content);
-
             records = List.of(PDNSDto.Record.builder().content(content).build());
         }
 
-        String fullDomain = subDomain + "." + zone;
-        if (fullDomain.charAt(fullDomain.length() - 1) != '.') {
-            fullDomain = fullDomain + ".";
-        }
+        String fullDomain = buildFqdnForPowerDns(subDomain, zone);
 
         // 중복 실행 방지 락 설정
         Boolean locked = redisTemplate.opsForValue().setIfAbsent(fullDomain, "LOCKED", LOCK_TTL);
         if (!Boolean.TRUE.equals(locked)) {
-            log.error("modifyRecord 중복 실행 방지: {}.{}", subDomain, zone);
-            throw new IllegalStateException("해당 도메인에 대한 작업이 이미 진행 중입니다. 잠시 후 다시 시도해주세요.");
+            throw new IllegalStateException("해당 도메인에 대한 작업이 이미 진행 중");
         }
 
         // 요청 데이터 생성

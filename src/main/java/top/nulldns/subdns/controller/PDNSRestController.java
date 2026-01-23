@@ -25,7 +25,6 @@ import java.util.*;
 @RequestMapping("/api")
 public class PDNSRestController {
     private final PDNSService pdnsService;
-    private final AdminService adminService;
     private final HaveSubDomainRepository haveSubDomainRepository;
     private final HaveSubDomainService haveSubDomainService;
     private final CheckAdminService checkAdminService;

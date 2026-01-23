@@ -28,7 +28,6 @@ public class SubDNSScheduler {
     private static final Duration LOCK_TTL = Duration.ofSeconds(55);
 
     @Scheduled(cron = "0 5 0 * * *")
-    //@Scheduled(cron = "0 * * * * *")
     public void deleteExpiryDomain() {
         Boolean locked = redisTemplate.opsForValue().setIfAbsent(LOCK_KEY, "LOCKED", LOCK_TTL);
         if (!Boolean.TRUE.equals(locked)) {

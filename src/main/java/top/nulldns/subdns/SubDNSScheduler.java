@@ -6,9 +6,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import top.nulldns.subdns.dao.HaveSubDomain;
-import top.nulldns.subdns.repository.HaveSubDomainRepository;
-import top.nulldns.subdns.service.AdminService;
-import top.nulldns.subdns.service.CheckAdminService;
+import top.nulldns.subdns.service.dbservice.CheckAdminService;
+import top.nulldns.subdns.service.dbservice.HaveSubDomainService;
 import top.nulldns.subdns.service.PDNSService;
 
 import java.time.Duration;
@@ -19,7 +18,8 @@ import java.util.List;
 @AllArgsConstructor
 @Slf4j
 public class SubDNSScheduler {
-    private final HaveSubDomainRepository haveSubDomainRepository;
+    //private final HaveSubDomainRepository haveSubDomainRepository;
+    private final HaveSubDomainService haveSubDomainService;
     private final PDNSService pdnsService;
     private final StringRedisTemplate redisTemplate;
     private final CheckAdminService checkAdminService;
@@ -43,7 +43,7 @@ public class SubDNSScheduler {
     }
 
     private void runDeleteExpiryDomain() {
-        List<HaveSubDomain> deleteList = haveSubDomainRepository.findByExpiryDateBefore(LocalDate.now());
+        List<HaveSubDomain> deleteList = haveSubDomainService.getExpiredSubDomains(LocalDate.now());
 
         log.info("만료된 서브도메인 삭제 스케줄러 실행: 삭제 대상 {}개", deleteList.size());
         if (deleteList.isEmpty()) {

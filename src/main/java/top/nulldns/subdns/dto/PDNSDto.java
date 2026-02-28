@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
@@ -52,6 +53,7 @@ public class PDNSDto {
     @Data
     @Builder
     @JsonIgnoreProperties(ignoreUnknown = true)
+    @EqualsAndHashCode
     public static class ZoneName {
         private String name;    // zone domain
     }

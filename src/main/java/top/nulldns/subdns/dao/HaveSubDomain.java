@@ -46,6 +46,9 @@ public class HaveSubDomain {
         }
     }
 
+    public void updateContent(String content) {
+        this.content = content;
+    }
 
     public boolean isRenewable() {
         LocalDate oneMonthBeforeExpiry = this.expiryDate.minusMonths(1);

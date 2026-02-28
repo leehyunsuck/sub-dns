@@ -10,10 +10,8 @@ import top.nulldns.subdns.dto.HaveDomainsDto;
 import top.nulldns.subdns.dto.PDNSDto;
 import top.nulldns.subdns.dto.ResultMessageDTO;
 import top.nulldns.subdns.dao.HaveSubDomain;
-import top.nulldns.subdns.repository.HaveSubDomainRepository;
-import top.nulldns.subdns.service.AdminService;
-import top.nulldns.subdns.service.CheckAdminService;
-import top.nulldns.subdns.service.HaveSubDomainService;
+import top.nulldns.subdns.service.dbservice.CheckAdminService;
+import top.nulldns.subdns.service.dbservice.HaveSubDomainService;
 import top.nulldns.subdns.service.PDNSService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
 
@@ -25,7 +23,6 @@ import java.util.*;
 @RequestMapping("/api")
 public class PDNSRestController {
     private final PDNSService pdnsService;
-    private final HaveSubDomainRepository haveSubDomainRepository;
     private final HaveSubDomainService haveSubDomainService;
     private final CheckAdminService checkAdminService;
 
@@ -42,20 +39,8 @@ public class PDNSRestController {
         Long memberId = (Long) session.getAttribute("memberId");
         String fullDomain = subDomain + "." + zone;
 
-        boolean isOwner = haveSubDomainRepository.existsHaveSubDomainByMemberIdAndFullDomain(memberId, fullDomain);
-        if (!isOwner) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build(); // 권한 없음
-        }
-
-        ResultMessageDTO<Integer> renewResult = haveSubDomainService.renew(memberId, fullDomain);
-        int code = renewResult.getData();
-        log.debug("도메인 갱신 요청 결과 코드: {}", code);
-
-        if (code == 404) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // 도메인 없음
-        } else if (code == 400) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build(); // 갱신 불가
-        }
+        // throw new ResponseStatusException(STATUS, "MSG") 로 예외 넘어옴 - 로그 남길필요 없다고 판단하여 CATCH 안함
+        haveSubDomainService.renewDate(memberId, fullDomain);
 
         return ResponseEntity.ok().build();
     }
@@ -67,12 +52,10 @@ public class PDNSRestController {
         }
 
         Long memberId = (Long) session.getAttribute("memberId");
-        if (!pdnsService.isDomainOwner(memberId, subDomain + "." + zone)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
-
         try {
-            pdnsService.deleteAllSubRecords(subDomain, zone, memberId);
+            pdnsService.deleteAllSubRecords(memberId, subDomain, zone);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception e) {
             log.error("서브도메인 삭제 요청 중 에러 발생", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
@@ -87,33 +70,26 @@ public class PDNSRestController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
+        Long id = (Long) session.getAttribute("memberId");
         List<HaveDomainsDto> haveDomains = new ArrayList<>();
 
-        try {
-            Long id = (Long) session.getAttribute("memberId");
-            List<HaveSubDomain> haveSubDomains = haveSubDomainRepository.findDistinctByMemberId(id);
-
-            if (haveSubDomains.isEmpty()) {
-                throw new NoSuchElementException();
-            }
-
-            for (HaveSubDomain subDoamin: haveSubDomains) {
-                String[] domainInfo = subDoamin.getFullDomain().split("\\.", 2);
-                haveDomains.add(
-                        new HaveDomainsDto(
-                                domainInfo[0],
-                                domainInfo[1],
-                                subDoamin.getExpiryDate()
-                        )
-                );
-            }
-
-            return ResponseEntity.ok(haveDomains);
-        } catch (NoSuchElementException e) {
+        List<HaveSubDomain> haveSubDomainList = haveSubDomainService.getHaveSubDomains(id);
+        if (haveSubDomainList.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+
+        for (HaveSubDomain subDomain : haveSubDomainList) {
+            String[] splitDomain = pdnsService.splitZoneAndSubDomain(subDomain.getFullDomain());
+            haveDomains.add(
+                    new HaveDomainsDto(
+                            splitDomain[0],
+                            splitDomain[1],
+                            subDomain.getExpiryDate()
+                    )
+            );
+        }
+
+        return ResponseEntity.ok(haveDomains);
     }
 
     @GetMapping("/get-records/{fullDomain}")
@@ -137,18 +113,18 @@ public class PDNSRestController {
         boolean isAllowDomain = isAdmin ? PDNSRecordValidator.isValidLabelAdmin(subDomain)
                                         : PDNSRecordValidator.isValidLabel(subDomain);
 
-        List<PDNSDto.ZoneName> zoneNameList = pdnsService.getCachedZoneNames();
+        Set<PDNSDto.ZoneName> zoneNames = pdnsService.getCachedZoneNames();
 
         PDNSDto.CanAddSubDomainZones canAddSubDomainZones = PDNSDto.CanAddSubDomainZones.builder()
                 .subDomain(subDomain)
                 .zones(new ArrayList<>())
                 .build();
 
-        for (PDNSDto.ZoneName zone : zoneNameList) {
+        for (PDNSDto.ZoneName zone : zoneNames) {
             String  zoneName = zone.getName(),
                     fullDomain = subDomain + "." + zoneName;
 
-            boolean canAdd = isAllowDomain && !haveSubDomainRepository.existsByFullDomain(fullDomain);
+            boolean canAdd = isAllowDomain && haveSubDomainService.canAddSubDomain(fullDomain);
 
             canAddSubDomainZones.getZones().add(
                     PDNSDto.ZoneAddCapability.builder()

@@ -1,16 +1,9 @@
 package top.nulldns.subdns.service;
 
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import top.nulldns.subdns.dao.Admin;
-import top.nulldns.subdns.repository.AdminRepository;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import top.nulldns.subdns.service.dbservice.HaveSubDomainService;
 
 @Service
 @RequiredArgsConstructor

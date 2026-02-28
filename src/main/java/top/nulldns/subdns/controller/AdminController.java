@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 import top.nulldns.subdns.service.AdminService;
-import top.nulldns.subdns.service.CheckAdminService;
+import top.nulldns.subdns.service.dbservice.CheckAdminService;
 
 @Slf4j
 @RestController

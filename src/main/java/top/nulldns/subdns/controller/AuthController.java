@@ -5,21 +5,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import top.nulldns.subdns.dao.Member;
-import top.nulldns.subdns.service.AuthService;
+import top.nulldns.subdns.service.dbservice.MemberService;
 
 @Controller
 @RequiredArgsConstructor
 public class AuthController {
-    private final AuthService authService;
+    private final MemberService memberService;
 
     @GetMapping("/run-login")
     public String loginSuccess(OAuth2AuthenticationToken token, HttpSession session) {
         String provider = token.getAuthorizedClientRegistrationId();
         String providerId = token.getPrincipal().getAttribute("id").toString();
 
-        Member member = authService.loginOrSignup(provider, providerId);
+        Member member = memberService.loginOrSignup(provider, providerId);
         if (member.isBanned()) {
             session.invalidate();
             return "redirect:/?status=banned";

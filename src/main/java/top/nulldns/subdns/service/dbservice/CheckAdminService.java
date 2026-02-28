@@ -1,4 +1,4 @@
-package top.nulldns.subdns.service;
+package top.nulldns.subdns.service.dbservice;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+// DB Service
 @Service
 @RequiredArgsConstructor
 @Slf4j

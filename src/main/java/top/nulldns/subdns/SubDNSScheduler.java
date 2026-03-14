@@ -18,7 +18,6 @@ import java.util.List;
 @AllArgsConstructor
 @Slf4j
 public class SubDNSScheduler {
-    //private final HaveSubDomainRepository haveSubDomainRepository;
     private final HaveSubDomainService haveSubDomainService;
     private final PDNSService pdnsService;
     private final StringRedisTemplate redisTemplate;
@@ -50,23 +49,7 @@ public class SubDNSScheduler {
             return;
         }
 
-        Long successCount = 0L;
-        Long adminCount = 0L;
-        log.info("만료된 서브도메인 {}개 삭제 시작", deleteList.size());
-        for (HaveSubDomain domain : deleteList) {
-
-            if (checkAdminService.isAdmin(domain.getMember().getId())) {
-                log.info("관리자 계정의 서브도메인 {}은 삭제하지 않음", domain.getFullDomain());
-                adminCount++;
-                continue;
-            }
-
-            boolean success = pdnsService.deleteSubRecordSchedule(domain);
-            if (success) {
-                successCount++;
-            }
-        }
-        log.info("만료된 서브도메인 삭제 완료: {}개 중 {}개 삭제 성공", deleteList.size(), successCount);
-        log.info("관리자 계정의 서브도메인 {}개는 삭제하지 않음", adminCount);
+        pdnsService.deleteAllSubRecords(deleteList);
+        log.info("만료된 서브도메인 삭제 완료: {}개", deleteList.size());
     }
 }

@@ -7,16 +7,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.server.ResponseStatusException;
 import top.nulldns.subdns.dto.PDNSDto;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dao.Member;
+import top.nulldns.subdns.dto.SubDomainDto;
 import top.nulldns.subdns.service.dbservice.CheckAdminService;
 import top.nulldns.subdns.service.dbservice.HaveSubDomainService;
 import top.nulldns.subdns.service.dbservice.MemberService;
@@ -76,22 +75,6 @@ public class PDNSService {
         } catch (Exception e) {
             log.error("정기 Zone Name 목록 갱신 중 에러 발생", e);
         }
-    }
-
-    /**
-     * 특정 풀 도메인(서브 + 존) 레코드 검색 (모든 타입)
-     * @param fullDomain example.nulldns.top, www.example.com 등
-     * @return List<PDNSDto.SearchResult> {name, type, content}
-     */
-    public List<PDNSDto.SearchResult> searchResultList(String fullDomain) {
-        return restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/search-data")
-                        .queryParam("q", fullDomain)  // 혹은 서브도메인만
-                        .queryParam("object_type", "record")
-                        .build())
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
     }
 
     /**
@@ -171,29 +154,6 @@ public class PDNSService {
         }
 
         this.deleteAllSubRecords(haveSubDomainList);
-    }
-
-    /**
-     * 서브 도메인 만료 삭제 스케줄러용 레코드 삭제 메서드
-     * @param haveSubDomain    삭제할 서브 도메인 정보
-     * @return boolean         삭제 성공 여부
-     */
-    public boolean deleteSubRecordSchedule(HaveSubDomain haveSubDomain) {
-        Long memberId = haveSubDomain.getMember().getId();
-        String[] splitDomain = this.splitZoneAndSubDomain(haveSubDomain.getFullDomain());
-
-        String subDomain = splitDomain[0],
-                zone = splitDomain[1],
-                type = haveSubDomain.getRecordType();
-
-        try {
-            deleteRecord(zone, subDomain, type, memberId);
-        } catch (Exception e) {
-            log.error("관리자에 의한 서브 도메인 만료 삭제 중 에러 발생\n도메인 정보: {}\nmemberId: {}", haveSubDomain, memberId);
-            return false;
-        }
-
-        return true;
     }
 
     /**
@@ -291,7 +251,7 @@ public class PDNSService {
         if (!haveSubDomainService.isOwnerOfDomain(memberId, subDomain + "." + zone)) {
             throw new SecurityException("보유 도메인 아님");
         }
-        
+
         // PowerDNS에서 삭제 진행
         boolean isAdmin = checkAdminService.isAdmin(memberId);
         modifyRecord(zone, subDomain, type, null, "DELETE", isAdmin);
@@ -498,8 +458,10 @@ public class PDNSService {
      */
     private Set<String> getAllRecordTypes(String fullDomain) {
         Set<String> recordTypes = new HashSet<>();
-        for (PDNSDto.SearchResult record : searchResultList(fullDomain)) {
-            recordTypes.add(record.getType());
+
+        List<SubDomainDto> subDomains = haveSubDomainService.getSubDomainDTOs(fullDomain);
+        for (SubDomainDto subDomain : subDomains) {
+            recordTypes.add(subDomain.type());
         }
 
         return recordTypes;

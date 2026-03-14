@@ -19,6 +19,8 @@ public interface HaveSubDomainRepository extends JpaRepository<HaveSubDomain, Lo
 
     List<HaveSubDomain> findByMemberIdAndFullDomain(Long memberId, String fullDomain);
 
+    List<HaveSubDomain> findByFullDomain(String fullDomain);
+
     @Query("select count(distinct h.fullDomain) from HaveSubDomain h where h.member.id = :memberId")
     int countDistinctFullDomainByMemberId(Long memberId);
 

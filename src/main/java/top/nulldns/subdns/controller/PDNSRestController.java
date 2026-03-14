@@ -8,8 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import top.nulldns.subdns.dto.HaveDomainsDto;
 import top.nulldns.subdns.dto.PDNSDto;
-import top.nulldns.subdns.dto.ResultMessageDTO;
 import top.nulldns.subdns.dao.HaveSubDomain;
+import top.nulldns.subdns.dto.SubDomainDto;
 import top.nulldns.subdns.service.dbservice.CheckAdminService;
 import top.nulldns.subdns.service.dbservice.HaveSubDomainService;
 import top.nulldns.subdns.service.PDNSService;
@@ -93,17 +93,20 @@ public class PDNSRestController {
     }
 
     @GetMapping("/get-records/{fullDomain}")
-    public ResponseEntity<List<PDNSDto.SearchResult>> getRecords(@PathVariable String fullDomain, HttpSession session) {
+    public ResponseEntity<List<SubDomainDto>> getRecords(@PathVariable String fullDomain, HttpSession session) {
         if (!isLoggedIn(session)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        List<PDNSDto.SearchResult> searchResult = pdnsService.searchResultList(fullDomain);
-        if (searchResult.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        Long memberId = (Long) session.getAttribute("memberId");
+        boolean isDomainOwner = haveSubDomainService.isOwnerOfDomain(memberId, fullDomain);
+        if (!isDomainOwner) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        return ResponseEntity.ok(searchResult);
+        List<SubDomainDto> subDomains = haveSubDomainService.getSubDomainDTOs(fullDomain);
+
+        return ResponseEntity.ok(subDomains);
     }
 
     @GetMapping("/available-domains/{subDomain}")

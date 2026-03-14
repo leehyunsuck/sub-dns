@@ -18,13 +18,13 @@ public class PDNSDto {
                        content;
     }
 
-    @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class SearchResult {
-        private String  name,       // full Domain
-                        type,
-                        content;
-    }
+//    @Data
+//    @JsonIgnoreProperties(ignoreUnknown = true)
+//    public static class SearchResult {
+//        private String  name,       // full Domain
+//                        type,
+//                        content;
+//    }
 
     @Data
     @Builder

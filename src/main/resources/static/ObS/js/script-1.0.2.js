@@ -169,7 +169,7 @@ function updateInputFields() {
   const placeholders = {
     'A': '예: 192.168.1.1',
     'AAAA': '예: 2001:db8::1',
-    'CNAME': '예: example.com',
+    'CNAME': '예: nulldns.top (단, 도메인 존이 같아야 합니다)',
     'TXT': '예: "v=spf1 include:_spf.google.com ~all"'
   };
 
@@ -213,8 +213,14 @@ async function logout() {
   }
 }
 
-
 function loginWithGitHub() {
+  const agreeCheckbox = document.querySelector('input[name="agree"]');
+
+  if (!agreeCheckbox.checked) {
+    alert("이용약관에 동의해야 로그인이 가능합니다.");
+    return;
+  }
+
   window.location.href = "/oauth2/authorization/github";
 }
 
@@ -292,6 +298,9 @@ async function submitRegistration() {
         alert('도메인 정보가 성공적으로 업데이트되었습니다.');
         loadPage('domainList');
         break;
+      case 400:
+        alert('옳바르지 않은 내용을 입력하였습니다.');
+        loadPage('domainSearch');
       case 401:
         alert("로그인이 필요합니다.");
         loadPage('auth');
@@ -301,7 +310,7 @@ async function submitRegistration() {
         loadPage('domainList');
         break;
       case 409:
-        alert("최대 도메인 수 초과입니다.");
+        alert("최대 도메인 수 초과 혹은 이미 작업중인 도메인 입니다.");
         loadPage('domainList');
         break;
       default:

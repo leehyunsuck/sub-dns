@@ -49,13 +49,6 @@
     <h1>서비스 안내</h1>
     <p><a th:href="${staticUrl} + 'Term.txt'">도메인 종류 및 정보</a>를 통해 갱신 예정이 없는 도메인을 알 수 있습니다.</p>
     <ul>
-        <li>
-            <strong>Notice:</strong> 본 서비스의 모든 기능(로그인, 검색 등) 이용 시
-            <a th:href="${staticUrl} + 'ToS.txt'" style="text-decoration: underline; font-weight: bold;">[이용약관]</a>에 동의한 것으로 간주됩니다.
-            문의: <a href="mailto:help@nulldns.top">help@nulldns.top</a>
-        </li>
-    </ul>
-    <ul>
         <li>해당 서비스는 서브도메인 등록 및 관리 기능을 제공합니다.</li>
         <li>도메인은 최대 10개까지 등록할 수 있으며, 각 도메인은 등록일로부터 6개월 후 만료됩니다.</li>
         <li>만료일이 1달 남은 시점에서 갱신이 가능합니다.</li>
@@ -63,6 +56,7 @@
         <li>특수문자나 공백은 허용되지 않으며, 하이픈(-)은 도메인 이름의 처음과 끝에 올 수 없고 연속으로 사용할 수 없습니다.</li>
         <li>A, AAAA, CNAME, TXT 타입을 사용할 수 있습니다.</li>
         <li>CNAME은 다른 타입과 공존할 수 없습니다. 예시로 A 레코드가 등록 된 상태에서 CNAME을 등록한다면 A 타입은 삭제됩니다.</li>
+        <li>CNAME은 등록한 도메인과 같은 Zone만 가능합니다. test.nulldns.top 이면 CNAME의 마지막 값은 .nulldns.top 이어야 합니다</li>
     </ul>
 </div>
 

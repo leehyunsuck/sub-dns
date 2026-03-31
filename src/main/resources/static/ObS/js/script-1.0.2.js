@@ -179,14 +179,18 @@ function updateInputFields() {
 // 로그인 상태 확인
 async function checkAuth() {
   const authSection = document.getElementById('authSection');
+  const domainMenu = document.getElementById('domainMenu');
   try {
     const response = await fetch('/api/me', { credentials: 'include' });
     if (response.ok) {
       const idDto = await response.json();
+
+      if (domainMenu) domainMenu.style.display = 'inline-block';
+
       authSection.innerHTML = `
-        <span>${ idDto.id || '사용자'}님</span>
         <a href="#" onclick="logout(); return false;">로그아웃</a>
         <a href="#" onclick="leave()">회원탈퇴</a>
+        <span>${ idDto.id || '사용자'}님</span>
       `;
     } else {
       authSection.innerHTML = `<a href="#" onclick="loadPage('auth')">로그인</a>`;
@@ -270,6 +274,7 @@ async function loadUserDomains() {
       listDiv.innerHTML = '<p>보유한 도메인이 없습니다. 도메인을 검색하여 추가해보세요.</p>';
     }
   } catch (error) {
+
     listDiv.innerHTML = '<p>도메인 목록을 불러오는 중 오류가 발생했습니다.</p>';
   }
 }

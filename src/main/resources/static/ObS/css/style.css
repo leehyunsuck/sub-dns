@@ -116,7 +116,7 @@ h2 {
 }
 
 /* === Form Elements === */
-input,
+input:not([type="checkbox"]),
 select {
   width: 100%;
   padding: 0.85rem 0.9rem;
@@ -125,6 +125,12 @@ select {
   border: 1px solid var(--border);
   font-size: 0.95rem;
   transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  cursor: pointer;
 }
 
 input:focus,
@@ -319,6 +325,47 @@ p.msg {
   transform: translateY(1px);
 }
 
+.login-info {
+  background: #f8f9fa;
+  padding: 1.2rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  border: 1px solid #eee;
+}
+
+.login-info p {
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 0.4rem;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.login-info p:last-child {
+  margin-bottom: 0;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 1.5rem;
+  padding-left: 2px;
+}
+
+.checkbox-group label {
+  font-size: 0.9rem;
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-group a {
+  color: var(--accent-blue);
+  text-decoration: underline;
+  font-weight: 500;
+}
+
 /* === Mobile Header Font Size === */
 @media (max-width: 768px) {
 
@@ -355,3 +402,4 @@ p.msg {
     font-size: 0.7rem;
   }
 }
+

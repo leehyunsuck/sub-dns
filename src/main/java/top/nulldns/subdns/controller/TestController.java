@@ -29,6 +29,9 @@ public class TestController {
     private final PDNSService pdnsService;
     private final AuthService authService;
     private final CheckAdminService checkAdminService;
+    private final top.nulldns.subdns.SubDNSScheduler subDNSScheduler;
+    private final top.nulldns.subdns.service.domain.HaveSubDomainService haveSubDomainService;
+    private final top.nulldns.subdns.repository.HaveSubDomainRepository haveSubDomainRepository;
 
     private static final String TEST_PROVIDER = "test_provider";
     private static final String TEST_ZONE = "nulldns.top"; // Assuming this is one of the cachedZoneNames
@@ -170,8 +173,85 @@ public class TestController {
                 appendResult(resultBuilder, false, "타입 변경 테스트 건너뜀 (기본 도메인 없음)");
             }
 
-            // 6. 회원 탈퇴
-            appendHeader(resultBuilder, "6. 사용자 및 데이터 완전 삭제 (회원 탈퇴)");
+            // 6. 스케줄러 기능 테스트
+            appendHeader(resultBuilder, "6. 스케줄러(Scheduler) 기능 통합 테스트");
+            
+            // 6-1. 만료 도메인 삭제 테스트
+            appendResult(resultBuilder, true, "[6-1] 만료 도메인 자동 삭제 테스트 시작");
+            String expiredSub = "expired-" + generateRandomString(5);
+            String expiredFull = expiredSub + "." + TEST_ZONE;
+            top.nulldns.subdns.dao.HaveSubDomain expiredDomain = top.nulldns.subdns.dao.HaveSubDomain.builder()
+                    .member(testMember)
+                    .fullDomain(expiredFull)
+                    .recordType("A")
+                    .content("8.8.8.8")
+                    .expiryDate(java.time.LocalDate.now().minusDays(1)) // 어제로 만료 설정
+                    .domainStatus(top.nulldns.subdns.config.finalconfig.Status.ACTIVE)
+                    .build();
+            haveSubDomainRepository.save(expiredDomain);
+            appendResult(resultBuilder, true, "만료된 테스트 도메인 생성 완료: " + expiredFull);
+            
+            subDNSScheduler.deleteExpiryDomain();
+            Thread.sleep(200);
+            
+            boolean isStillExist = haveSubDomainRepository.existsByFullDomain(expiredFull);
+            if (!isStillExist) {
+                appendResult(resultBuilder, true, "만료 도메인 삭제 확인 성공");
+            } else {
+                appendResult(resultBuilder, false, "만료 도메인 삭제 확인 실패 (여전히 존재함)");
+            }
+
+            // 6-2. 보류 중인(Pending) 레코드 처리 테스트 (ADD, UPDATE, DELETE 전체)
+            appendResult(resultBuilder, true, "[6-2] 모든 Pending 상태(ADD, UPDATE, DELETE) 자동 처리 테스트 시작");
+            
+            top.nulldns.subdns.config.finalconfig.Status[] pendingStatuses = {
+                top.nulldns.subdns.config.finalconfig.Status.ADD_PENDING,
+                top.nulldns.subdns.config.finalconfig.Status.UPDATE_PENDING,
+                top.nulldns.subdns.config.finalconfig.Status.DELETE_PENDING
+            };
+
+            List<String> pendingFullDomains = new ArrayList<>();
+            for (top.nulldns.subdns.config.finalconfig.Status status : pendingStatuses) {
+                String sub = "pending-" + status.name().toLowerCase().split("_")[0] + "-" + generateRandomString(3);
+                String full = sub + "." + TEST_ZONE;
+                top.nulldns.subdns.dao.HaveSubDomain domain = top.nulldns.subdns.dao.HaveSubDomain.builder()
+                        .member(testMember)
+                        .fullDomain(full)
+                        .recordType("A")
+                        .content("7.7.7.7")
+                        .expiryDate(java.time.LocalDate.now().plusMonths(6))
+                        .domainStatus(status)
+                        .build();
+                haveSubDomainRepository.save(domain);
+                pendingFullDomains.add(full);
+                appendResult(resultBuilder, true, status.name() + " 테스트 데이터 생성 완료: " + full);
+            }
+
+            // 스케줄러의 pendingDomain은 내부 인덱스(STATUS_IDX)에 따라 순차적으로 상태를 처리함.
+            // 모든 상태(3가지)가 한 번씩은 걸리도록 여유 있게 5번 호출.
+            appendResult(resultBuilder, true, "스케줄러 순차 실행 시작 (총 5회 호출)");
+            for (int i = 0; i < 5; i++) {
+                subDNSScheduler.pendingDomain();
+                Thread.sleep(100);
+            }
+
+            // 결과 검증
+            for (int i = 0; i < pendingStatuses.length; i++) {
+                top.nulldns.subdns.config.finalconfig.Status originalStatus = pendingStatuses[i];
+                String full = pendingFullDomains.get(i);
+                
+                if (originalStatus == top.nulldns.subdns.config.finalconfig.Status.DELETE_PENDING) {
+                    boolean exists = haveSubDomainRepository.existsByFullDomain(full);
+                    appendResult(resultBuilder, !exists, "DELETE_PENDING 처리 확인: " + (exists ? "실패 (삭제되지 않음)" : "성공 (삭제됨)"));
+                } else {
+                    top.nulldns.subdns.dao.HaveSubDomain check = haveSubDomainRepository.findByMemberAndFullDomainAndRecordType(testMember, full, "A");
+                    boolean isSuccess = (check != null && check.getDomainStatus() == top.nulldns.subdns.config.finalconfig.Status.ACTIVE);
+                    appendResult(resultBuilder, isSuccess, originalStatus.name() + " -> ACTIVE 처리 확인: " + (isSuccess ? "성공" : "실패"));
+                }
+            }
+
+            // 7. 회원 탈퇴
+            appendHeader(resultBuilder, "7. 사용자 및 데이터 완전 삭제 (회원 탈퇴)");
             if (testMemberId != null) {
                 authService.deleteUserAndData(testMemberId);
                 try {

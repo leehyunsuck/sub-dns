@@ -41,12 +41,12 @@ public class TestController {
     @ResponseBody
     public String test(HttpSession session) {
         if (session.getAttribute("memberId") == null || session.getAttribute("id") == null) {
-            return "<script>alert('로그인이 필요합니다.'); history.back();</script>";
+            return "<script>alert('로그인이 필요합니다.'); loadPage('auth');</script>";
         }
 
         boolean isAdmin = checkAdminService.isAdmin((Long) session.getAttribute("memberId"));
         if (!isAdmin) {
-            return "<script>alert('관리자 권한이 없습니다.'); history.back();</script>";
+            return "<script>alert('관리자 권한이 없습니다.'); loadPage('domainSearch');/script>";
         }
 
         StringBuilder resultBuilder = new StringBuilder();

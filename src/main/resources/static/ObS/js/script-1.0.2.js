@@ -451,6 +451,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-  checkAuth();
+document.addEventListener("DOMContentLoaded", () => {
+    checkAuth();
+    // 1. 현재 URL의 쿼리 파라미터 확인
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // 2. login=required 파라미터가 있는지 확인
+    if (urlParams.get("login") === "required") {
+        // 3. 파라미터가 있다면 로그인 페이지 로드 함수 실행
+        loadPage("login");
+
+        // 4. (선택사항) 주소창이 지저분해 보이지 않도록 파라미터 제거
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 });

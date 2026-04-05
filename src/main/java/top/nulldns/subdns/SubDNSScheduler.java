@@ -77,7 +77,9 @@ public class SubDNSScheduler {
         // 실제 작업 시작
         try {
             List<HaveSubDomain> targetSubDomains = haveSubDomainService.getAvailableSubDomains(status);
-            pdnsService.modifyPendingRecords(targetSubDomains, status);
+            if (!targetSubDomains.isEmpty()) {
+                pdnsService.modifyPendingRecords(targetSubDomains, status);
+            }
         } finally {
             // 다음 작업을 위해 STATUS_IDX 증가시키고 LOCK 해제
             if (idx + 1 >= STATUSES.length) {

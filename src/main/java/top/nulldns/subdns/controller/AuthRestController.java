@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import top.nulldns.subdns.dto.IdDto;
-import top.nulldns.subdns.service.AuthService;
+import top.nulldns.subdns.service.facade.AuthService;
 
 @RestController
 @RequestMapping("/api")

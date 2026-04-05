@@ -6,13 +6,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.dto.HaveDomainsDto;
 import top.nulldns.subdns.dto.PDNSDto;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dto.SubDomainDto;
-import top.nulldns.subdns.service.dbservice.CheckAdminService;
-import top.nulldns.subdns.service.dbservice.HaveSubDomainService;
-import top.nulldns.subdns.service.PDNSService;
+import top.nulldns.subdns.service.domain.CheckAdminService;
+import top.nulldns.subdns.service.domain.HaveSubDomainService;
+import top.nulldns.subdns.service.facade.PDNSService;
+import top.nulldns.subdns.service.domain.MemberService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
 
 import java.util.*;
@@ -24,6 +26,7 @@ import java.util.*;
 public class PDNSRestController {
     private final PDNSService pdnsService;
     private final HaveSubDomainService haveSubDomainService;
+    private final MemberService memberService;
     private final CheckAdminService checkAdminService;
 
     private boolean isLoggedIn(HttpSession session) {
@@ -40,7 +43,7 @@ public class PDNSRestController {
         String fullDomain = subDomain + "." + zone;
 
         // throw new ResponseStatusException(STATUS, "MSG") 로 예외 넘어옴 - 로그 남길필요 없다고 판단하여 CATCH 안함
-        haveSubDomainService.renewDate(memberId, fullDomain);
+        haveSubDomainService.renewDate(memberService.getMemberById(memberId), fullDomain);
 
         return ResponseEntity.ok().build();
     }
@@ -52,8 +55,10 @@ public class PDNSRestController {
         }
 
         Long memberId = (Long) session.getAttribute("memberId");
+        Member member = memberService.getMemberById(memberId);
+
         try {
-            pdnsService.deleteAllSubRecords(memberId, subDomain, zone);
+            pdnsService.deleteSubRecord(member, subDomain, zone);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception e) {
@@ -73,7 +78,7 @@ public class PDNSRestController {
         Long id = (Long) session.getAttribute("memberId");
         List<HaveDomainsDto> haveDomains = new ArrayList<>();
 
-        List<HaveSubDomain> haveSubDomainList = haveSubDomainService.getHaveSubDomains(id);
+        List<HaveSubDomain> haveSubDomainList = haveSubDomainService.getDistinctSubDomainsByMemberId(id);
         if (haveSubDomainList.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -99,7 +104,9 @@ public class PDNSRestController {
         }
 
         Long memberId = (Long) session.getAttribute("memberId");
-        boolean isDomainOwner = haveSubDomainService.isOwnerOfDomain(memberId, fullDomain);
+        Member member = memberService.getMemberById(memberId);
+
+        boolean isDomainOwner = haveSubDomainService.isOwnerOfDomain(member, fullDomain);
         if (!isDomainOwner) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -155,6 +162,8 @@ public class PDNSRestController {
             return ResponseEntity.status(HttpStatus.CONFLICT).build(); // 레코드 수 제한 초과
         } catch (SecurityException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }

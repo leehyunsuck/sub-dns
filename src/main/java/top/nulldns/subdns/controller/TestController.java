@@ -3,19 +3,15 @@ package top.nulldns.subdns.controller;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import top.nulldns.subdns.dao.Member;
-import top.nulldns.subdns.service.AuthService;
-import top.nulldns.subdns.service.PDNSService;
-import top.nulldns.subdns.service.dbservice.CheckAdminService;
-import top.nulldns.subdns.service.dbservice.HaveSubDomainService;
-import top.nulldns.subdns.service.dbservice.MemberService;
+import top.nulldns.subdns.service.facade.AuthService;
+import top.nulldns.subdns.service.facade.PDNSService;
+import top.nulldns.subdns.service.domain.CheckAdminService;
+import top.nulldns.subdns.service.domain.MemberService;
 
-import java.time.LocalDate;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
@@ -110,7 +106,7 @@ public class TestController {
                     String domainToDelete = registeredFullDomains.remove(0);
                     String[] parts = pdnsService.splitZoneAndSubDomain(domainToDelete);
                     try {
-                        pdnsService.deleteAllSubRecords(testMemberId, parts[0], parts[1]);
+                        pdnsService.deleteSubRecord(testMember, parts[0], parts[1]);
                         appendResult(resultBuilder, true, "도메인 삭제 성공: " + domainToDelete);
                     } catch (Exception e) {
                         appendResult(resultBuilder, false, "도메인 삭제 실패: " + domainToDelete + " - 에러: " + e.getMessage());
@@ -127,7 +123,7 @@ public class TestController {
             if (!registeredFullDomains.isEmpty()) {
                 Map<String, String> recordTypeContents = new LinkedHashMap<>();
                 recordTypeContents.put("A", "192.168.1.1");
-                recordTypeContents.put("CNAME", "www.example.com.");
+                recordTypeContents.put("CNAME", "testnull.nulldns.top");
                 recordTypeContents.put("TXT", "\"test-txt\"");
                 recordTypeContents.put("AAAA", "::1");
 
@@ -140,7 +136,6 @@ public class TestController {
                     String initialContent = initialRecord.getValue();
 
                     String sub = "chg-" + initialType.toLowerCase() + "-" + generateRandomString(3);
-                    String full = sub + "." + baseZone;
 
                     // 초기 레코드 생성
                     try {
@@ -169,7 +164,7 @@ public class TestController {
                     }
                     
                     // 정리
-                    pdnsService.deleteAllSubRecords(testMemberId, sub, baseZone);
+                    pdnsService.deleteSubRecord(testMember, sub, baseZone);
                 }
             } else {
                 appendResult(resultBuilder, false, "타입 변경 테스트 건너뜀 (기본 도메인 없음)");

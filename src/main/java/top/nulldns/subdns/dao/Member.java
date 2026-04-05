@@ -2,6 +2,7 @@ package top.nulldns.subdns.dao;
 
 import jakarta.persistence.*;
 import lombok.*;
+import top.nulldns.subdns.config.finalconfig.Status;
 
 @Entity
 @Getter
@@ -32,4 +33,11 @@ public class Member {
 
     @Builder.Default
     private boolean banned = false;
+
+    @Builder.Default
+    private Status status = Status.ACTIVE;
+
+    public void setDeletePending() {
+        this.status = Status.DELETE_PENDING;
+    }
 }

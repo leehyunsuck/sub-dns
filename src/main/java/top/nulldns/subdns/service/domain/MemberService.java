@@ -1,4 +1,4 @@
-package top.nulldns.subdns.service.dbservice;
+package top.nulldns.subdns.service.domain;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,12 +28,16 @@ public class MemberService {
 
     public Member getMemberById(Long memberId) {
         return memberRepository.findById(memberId).orElseThrow(
-                () -> new NoSuchElementException("해당 memberId의 멤버가 존재하지 않음")
+                () -> new NoSuchElementException("비정상적인 접근 (없는 계정입니다)")
         );
     }
 
-    public void deleteMemberById(Long memberId) {
-        memberRepository.deleteById(memberId);
+    public void deletePending(Member member) {
+        member.setDeletePending();
+        memberRepository.save(member);
     }
 
+    public void delete(Member member) {
+        memberRepository.delete(member);
+    }
 }

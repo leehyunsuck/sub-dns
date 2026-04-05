@@ -1,4 +1,4 @@
-package top.nulldns.subdns.service.dbservice;
+package top.nulldns.subdns.service.domain;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;

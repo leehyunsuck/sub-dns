@@ -2,7 +2,6 @@ package top.nulldns.subdns.util;
 
 import java.net.Inet6Address;
 import java.net.InetAddress;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -56,9 +55,10 @@ public class PDNSRecordValidator {
     );
 
     public static boolean isValidType(String type) {
+        if (type == null || type.isEmpty()) {
+            return false;
+        }
         type = type.toUpperCase();
-
-        if (type == null || type.isEmpty()) return false;
 
         return VALID_TYPES.contains(type);
     }
@@ -81,9 +81,8 @@ public class PDNSRecordValidator {
     }
 
 
-    public static boolean validate(String type, String content) {
+    public static boolean validate(String type, String content, String zone, boolean isAdmin) {
         if (!isValidType(type)) return false;
-        if (content == null || content.isEmpty()) return false;
 
         switch (type) {
             case "A":
@@ -91,6 +90,9 @@ public class PDNSRecordValidator {
             case "AAAA":
                 return isIPv6(content);
             case "CNAME":
+                if (!isAdmin && !isValidCNAME(content, zone)) {
+                    return false;
+                }
                 return isValidDomainName(content);
             case "TXT":
                 return isValidTxt(content);
@@ -113,10 +115,14 @@ public class PDNSRecordValidator {
         }
     }
 
-    public static boolean isValidDomainName(String domain) {
-        if (domain.length() > 253) return false;
+    public static boolean isValidCNAME(String content, String zone) {
+        return content.endsWith("." + zone + ".");
+    }
 
-        return DOMAIN_PATTERN.matcher(domain).matches();
+    public static boolean isValidDomainName(String content) {
+        if (content.length() > 253) return false;
+
+        return DOMAIN_PATTERN.matcher(content).matches();
     }
 
     public static boolean isValidTxt(String txt) {

@@ -205,11 +205,10 @@ public class PDNSService {
 
             // 이미 DB에 저장된거임 - PDNS에 반영하고 상태 수정하면 됨
             List<HaveSubDomain> successSubDomains = this.actionSubRecordsInPDNS(canProcessHaveSubDomains, action);
+            log.info("{} 레코드 {}개 PDNS 반영 완료", status.name(), successSubDomains.size());
 
             if (action.equals(Action.REPLACE)) {
                 haveSubDomainService.setStatusActivity(successSubDomains);
-                log.info("{} 레코드 {}개 PDNS 반영 완료", status.name(), successSubDomains.size());
-                log.info(successSubDomains.toString());
             } else {
                 haveSubDomainService.deleteSubDomains(successSubDomains);
             }

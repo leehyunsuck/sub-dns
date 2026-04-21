@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import top.nulldns.subdns.dao.Member;
@@ -39,6 +40,7 @@ public class TestController {
 
     @GetMapping("/test")
     @ResponseBody
+    @Transactional
     public String test(HttpSession session) {
         if (session.getAttribute("memberId") == null || session.getAttribute("id") == null) {
             return "<script>alert('로그인이 필요합니다.'); loadPage('auth');</script>";

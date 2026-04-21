@@ -88,10 +88,10 @@ public class PDNSService {
      * @param memberId  memberId
      */
     public void addRecord(String subDomain, String zone, String type, String content, Long memberId) {
-        zone = zone.toLowerCase();
-        subDomain = subDomain.toLowerCase();
-        type = type.toUpperCase();
-        content = this.modifyContentByType(type, content);
+        zone = zone.toLowerCase().trim();
+        subDomain = subDomain.toLowerCase().trim();
+        type = type.toUpperCase().trim();
+        content = this.modifyContentByType(type, content).trim();
 
         Member member = memberService.getMemberById(memberId);
 

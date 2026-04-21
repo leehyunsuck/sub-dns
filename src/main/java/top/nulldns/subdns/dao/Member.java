@@ -35,6 +35,7 @@ public class Member {
     private boolean banned = false;
 
     @Builder.Default
+    @Enumerated(EnumType.STRING)
     private Status status = Status.ACTIVE;
 
     public void setDeletePending() {

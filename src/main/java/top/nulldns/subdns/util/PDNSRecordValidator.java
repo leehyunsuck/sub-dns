@@ -9,7 +9,7 @@ public class PDNSRecordValidator {
 
     private static final Pattern IPV4_PATTERN = Pattern.compile(
             "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$");
-    private static final Pattern DOMAIN_PATTERN = Pattern.compile(
+    private static final Pattern DOMAIN_PATTERN = Pattern.compile(  // CNAME용
             "^(?!-)(?!.*--)[A-Za-z0-9-]{1,63}(?<!-)(\\.[A-Za-z0-9-]{1,63})*\\.?$"
     );
     private static final Pattern LABEL_PATTERN = Pattern.compile(
@@ -47,11 +47,20 @@ public class PDNSRecordValidator {
             "legal", "terms", "privacy", "policy", "jobs", "contact",
             "service", "public", "private"
     );
-
     private static final Set<String> CONTAINS_BLOCK_WORDS = Set.of(
             "admin", "administrator", "root", "system", "sysadmin",
             "master", "webmaster", "hostmaster", "postmaster",
             "nulldns", "subdns", "official"
+    );
+    private static final Set<String> BLOCKED_CNAME_TARGETS = Set.of(
+            "googlehosted.com", "verify.microsoft.com", "github.io", "gitlab.io",
+            "awsapps.com", "acm-validations.aws", "pages.dev", "vercel-dns.com",
+            "netlify.app", "herokuapp.com", "amazonses.com", "sendgrid.net",
+            "mailgun.org", "firebaseapp.com", "supabase.co", "atlassian.net"
+    );
+    private static final Set<String> BLOCKED_TXT_VALUES = Set.of(
+            "google-site-verification", "ms=", "facebook-domain-verification",
+            "v=spf1", "v=dmarc1", "naver-site-verification", "apple-domain-verification"
     );
 
     public static boolean isValidType(String type) {
@@ -90,8 +99,8 @@ public class PDNSRecordValidator {
             case "AAAA":
                 return isIPv6(content);
             case "CNAME":
-                if (!isAdmin && !isValidCNAME(content, zone)) {
-                    return false;
+                if (isAdmin) {
+                    return isValidCNAME(content, zone);
                 }
                 return isValidDomainName(content);
             case "TXT":
@@ -122,10 +131,18 @@ public class PDNSRecordValidator {
     public static boolean isValidDomainName(String content) {
         if (content.length() > 253) return false;
 
+        for (String domain : BLOCKED_CNAME_TARGETS) {
+            if (content.contains(domain)) return false;
+        }
+
         return DOMAIN_PATTERN.matcher(content).matches();
     }
 
     public static boolean isValidTxt(String txt) {
+        for (String block : BLOCKED_TXT_VALUES) {
+            if (txt.contains(block)) return false;
+        }
+
         return txt.length() <= 255;
     }
 

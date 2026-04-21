@@ -169,7 +169,7 @@ function updateInputFields() {
   const placeholders = {
     'A': '예: 192.168.1.1',
     'AAAA': '예: 2001:db8::1',
-    'CNAME': '예: nulldns.top (단, 도메인 존이 같아야 합니다)',
+    'CNAME': '예: nulldns.top',
     'TXT': '예: "v=spf1 include:_spf.google.com ~all"'
   };
 
@@ -306,6 +306,7 @@ async function submitRegistration() {
       case 400:
         alert('옳바르지 않은 내용을 입력하였습니다.');
         loadPage('domainSearch');
+        break;
       case 401:
         alert("로그인이 필요합니다.");
         loadPage('auth');

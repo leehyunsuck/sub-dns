@@ -58,10 +58,6 @@ public class PDNSRecordValidator {
             "netlify.app", "herokuapp.com", "amazonses.com", "sendgrid.net",
             "mailgun.org", "firebaseapp.com", "supabase.co", "atlassian.net"
     );
-    private static final Set<String> BLOCKED_TXT_VALUES = Set.of(
-            "google-site-verification", "ms=", "facebook-domain-verification",
-            "v=spf1", "v=dmarc1", "naver-site-verification", "apple-domain-verification"
-    );
 
     public static boolean isValidType(String type) {
         if (type == null || type.isEmpty()) {
@@ -100,7 +96,7 @@ public class PDNSRecordValidator {
                 return isIPv6(content);
             case "CNAME":
                 if (isAdmin) {
-                    return isValidCNAME(content, zone);
+                    return true;
                 }
                 return isValidDomainName(content);
             case "TXT":
@@ -124,10 +120,6 @@ public class PDNSRecordValidator {
         }
     }
 
-    public static boolean isValidCNAME(String content, String zone) {
-        return content.endsWith("." + zone + ".");
-    }
-
     public static boolean isValidDomainName(String content) {
         if (content.length() > 253) return false;
 
@@ -139,10 +131,6 @@ public class PDNSRecordValidator {
     }
 
     public static boolean isValidTxt(String txt) {
-        for (String block : BLOCKED_TXT_VALUES) {
-            if (txt.contains(block)) return false;
-        }
-
         return txt.length() <= 255;
     }
 

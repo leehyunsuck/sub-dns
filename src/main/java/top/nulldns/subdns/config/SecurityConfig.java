@@ -18,7 +18,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
-                        .requestMatchers("/", "/index.html").permitAll()
+                        .requestMatchers("/", "/login", "/banned").permitAll()
                         .requestMatchers("/api/available-domains/**", "/api/me").permitAll()
                         .requestMatchers("/robots.txt", "/sitemap.xml", "/ads.txt").permitAll()
                         .requestMatchers("naver114d2366f4787248382a17a44f17b76b.html", "naver114d2366f4787248382a17a44f17b76b").permitAll()
@@ -30,7 +30,7 @@ public class SecurityConfig {
 
                             // 브라우저를 통한 직접 접근 (HTML을 요구하는 경우)
                             if (acceptHeader != null && acceptHeader.contains("text/html")) {
-                                response.sendRedirect("/?login=required");
+                                response.sendRedirect("/login");
                             } else {
                                 // API (Fetch/Ajax) 요청인 경우 401 반환
                                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

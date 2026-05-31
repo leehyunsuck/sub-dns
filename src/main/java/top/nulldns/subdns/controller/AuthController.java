@@ -21,7 +21,7 @@ public class AuthController {
         Member member = memberService.loginOrSignup(provider, providerId);
         if (member.isBanned()) {
             session.invalidate();
-            return "redirect:/?status=banned";
+            return "redirect:/banned";
         }
 
         session.setAttribute("id", member.getProvider() + member.getProviderId());

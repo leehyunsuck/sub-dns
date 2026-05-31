@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('보유 도메인 관리')}"></head>
+<body>
+    <header th:replace="~{fragments/layout :: header}"></header>
+
+    <main id="content">
+        <h2>보유 도메인 목록</h2>
+        <div class="list" id="domainList">
+            <!-- JS에 의해 채워짐 -->
+        </div>
+    </main>
+
+    <div th:replace="~{fragments/layout :: footer}"></div>
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script>
+        document.addEventListener('DOMContentLoaded', loadUserDomains);
+    </script>
+</body>
+</html>

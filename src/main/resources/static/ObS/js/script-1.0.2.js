@@ -2,38 +2,12 @@ let recordMap = {};
 let selectedDomain = '';
 let selectedZone = '';
 
-// 페이지 조각 변경
-async function loadPage(page) {
-  try {
-    const response = await fetch(`${staticUrl}pages/${page}.html`);
-    if (!response.ok) {
-      document.getElementById('content').innerHTML = `<p>오류: 페이지를 찾을 수 없습니다.</p>`;
-      return;
-    }
-    const html = await response.text();
-    document.getElementById('content').innerHTML = html;
-
-
-    if (page === 'auth') {
-      const icon = document.getElementById('githubIcon');
-      if (icon) {
-        icon.src = staticUrl + 'assets/github-mark.svg';
-      }
-    }
-
-    // 콘텐츠 로드 후 페이지별 로직 실행
-    if (page === 'domainList') {
-      loadUserDomains();
-    }
-    // 'profile' 페이지 관련 로직 제거됨
-  } catch (error) {
-    document.getElementById('content').innerHTML = `<p>페이지 로드 중 오류 발생. 자세한 내용은 콘솔을 참조하세요.</p>`;
-  }
-}
-
 // 도메인 검색
 async function searchDomain() {
-  const subDomain = document.getElementById('searchInput').value.trim();
+  const subDomainInput = document.getElementById('searchInput');
+  if (!subDomainInput) return;
+
+  const subDomain = subDomainInput.value.trim();
   const resultDiv = document.getElementById('searchResult');
 
   if (!subDomain) {
@@ -49,17 +23,6 @@ async function searchDomain() {
       throw new Error(result.message);
     }
 
-    /*
-      result 형태:
-      {
-        "subDomain": "example",
-        "zoneNames": [
-            {"name": "nulldns.top", "canAdd": true/false},
-            {"name": "anotherdomain.com", "canAdd": true/false}
-        ]
-      }
-    */
-
     let auth = false;
     const authResponse = await fetch('/api/me');
     if (authResponse.ok) {
@@ -71,11 +34,19 @@ async function searchDomain() {
       const fullDomain = `${subDomain}.${zone.name}`;
 
       if (zone.canAdd) {
-        html += `
-          <div class="item status-ok" ${auth ? `onclick="openDomainDetail('${subDomain}', '${zone.name}', true)"` : ''}>
-            ${fullDomain} 사용 가능 합니다. ${auth ? '[클릭하여 등록 가능]' : '[로그인 후 등록 가능]'}
-          </div>
-        `;
+        if (auth) {
+          html += `
+            <div class="item status-ok" onclick="location.href='/domains/detail?subDomain=${subDomain}&zone=${zone.name}'">
+              ${fullDomain} 사용 가능 합니다. [클릭하여 등록 가능]
+            </div>
+          `;
+        } else {
+          html += `
+            <div class="item status-ok" onclick="location.href='/login'">
+              ${fullDomain} 사용 가능 합니다. [로그인 후 등록 가능]
+            </div>
+          `;
+        }
       } else {
         html += `
           <div class="item status-no">
@@ -93,9 +64,6 @@ async function searchDomain() {
 }
 
 async function openDomainDetail(subDomain, zone, isNew) {
-  await loadPage('domainDetail');
-  document.getElementById('domainTitle').innerText = subDomain + '.' + zone;
-
   selectedDomain = subDomain;
   selectedZone = zone;
 
@@ -109,15 +77,15 @@ async function openDomainDetail(subDomain, zone, isNew) {
 
   try {
     const response = await fetch(`/api/get-records/${fullDomain}`);
-    if (response.status == 401) {
+    if (response.status === 401) {
       alert("로그인이 필요합니다.");
-      loadPage('auth');
+      location.href = '/login';
       return;
     }
 
-    if (response.status == 403) {
+    if (response.status === 403) {
       alert("해당 도메인에 대한 접근 권한이 없습니다.");
-      loadPage('domainList');
+      location.href = '/domains';
       return;
     }
 
@@ -138,8 +106,7 @@ async function openDomainDetail(subDomain, zone, isNew) {
     updateInputFields();
   } catch (err) {
     alert("도메인 정보를 불러오는 중 오류가 발생했습니다.");
-    loadPage('domainList');
-    return;
+    location.href = '/domains';
   }
 }
 
@@ -163,8 +130,11 @@ function applyRecordToInput() {
 
 // placeholder 처리
 function updateInputFields() {
-  const recordType = document.getElementById('recordType').value;
+  const recordTypeInput = document.getElementById('recordType');
   const recordValueInput = document.getElementById('recordValue');
+  if (!recordTypeInput || !recordValueInput) return;
+
+  const recordType = recordTypeInput.value;
 
   const placeholders = {
     'A': '예: 192.168.1.1',
@@ -174,30 +144,6 @@ function updateInputFields() {
   };
 
   recordValueInput.placeholder = placeholders[recordType] || '값을 입력하세요.';
-}
-
-// 로그인 상태 확인
-async function checkAuth() {
-  const authSection = document.getElementById('authSection');
-  const domainMenu = document.getElementById('domainMenu');
-  try {
-    const response = await fetch('/api/me', { credentials: 'include' });
-    if (response.ok) {
-      const idDto = await response.json();
-
-      if (domainMenu) domainMenu.style.display = 'inline-block';
-
-      authSection.innerHTML = `
-        <a href="#" onclick="logout(); return false;">로그아웃</a>
-        <a href="#" onclick="leave()">회원탈퇴</a>
-        <span>${ idDto.id || '사용자'}님</span>
-      `;
-    } else {
-      authSection.innerHTML = `<a href="#" onclick="loadPage('auth')">로그인</a>`;
-    }
-  } catch (error) {
-    authSection.innerHTML = `<a href="#" onclick="loadPage('auth')">로그인</a>`;
-  }
 }
 
 async function logout() {
@@ -218,9 +164,9 @@ async function logout() {
 }
 
 function loginWithGitHub() {
-  const agreeCheckbox = document.querySelector('input[name="agree"]');
+  const agreeCheckbox = document.getElementById('agree');
 
-  if (!agreeCheckbox.checked) {
+  if (agreeCheckbox && !agreeCheckbox.checked) {
     alert("이용약관에 동의해야 로그인이 가능합니다.");
     return;
   }
@@ -234,12 +180,11 @@ async function loadUserDomains() {
   if (!listDiv) return;
 
   try {
-    // 사용자 도메인을 가져오는 API 엔드포인트
     const response = await fetch('/api/my-domains');
 
     const statusCode = response.status;
     if (statusCode === 401) {
-      listDiv.innerHTML = '<p>로그인이 필요합니다. <a href="#" onclick="loadPage(\'auth\')">로그인 페이지로 이동</a></p>';
+      listDiv.innerHTML = '<p>로그인이 필요합니다. <a href="/login">로그인 페이지로 이동</a></p>';
       return;
     }
     if (statusCode === 404) {
@@ -256,33 +201,35 @@ async function loadUserDomains() {
     if (domains.length > 0) {
       listDiv.innerHTML = domains.map(haveDomain =>
         `
-        <div class="item" onclick="openDomainDetail('${haveDomain.subDomain}', '${haveDomain.zone}', false)">
+        <div class="item" onclick="location.href='/domains/detail?subDomain=${haveDomain.subDomain}&zone=${haveDomain.zone}'">
             ${haveDomain.subDomain}.${haveDomain.zone}
         </div>
         <div class="${getExpirationClass(haveDomain.expirationDate)} status-clickable"
-            onclick="renewDate('${haveDomain.subDomain}', '${haveDomain.zone}', '${haveDomain.expirationDate}')">
+            onclick="renewDate('${haveDomain.subDomain}', '${haveDomain.zone}')">
             ${
               haveDomain.expirationDate
                 ? `만료일: ${new Date(haveDomain.expirationDate).toLocaleDateString()}`
                 : '만료일 정보 없음'
             }
         </div>
-
         `
       ).join('');
     } else {
       listDiv.innerHTML = '<p>보유한 도메인이 없습니다. 도메인을 검색하여 추가해보세요.</p>';
     }
   } catch (error) {
-
     listDiv.innerHTML = '<p>도메인 목록을 불러오는 중 오류가 발생했습니다.</p>';
   }
 }
 
 // 도메인 등록/수정 제출
 async function submitRegistration() {
-  const type = document.getElementById('recordType').value;
-  const content = document.getElementById('recordValue').value.trim();
+  const typeInput = document.getElementById('recordType');
+  const contentInput = document.getElementById('recordValue');
+  if (!typeInput || !contentInput) return;
+
+  const type = typeInput.value;
+  const content = contentInput.value.trim();
 
   if (!selectedZone || !selectedDomain || !type || !content) {
     alert('레코드 타입과 값을 모두 입력해주세요.');
@@ -290,7 +237,6 @@ async function submitRegistration() {
   }
 
   try {
-    // 레코드를 생성 또는 업데이트하는 API 엔드포인트
     const response = await fetch('/api/add-record', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -301,23 +247,23 @@ async function submitRegistration() {
     switch (statusCode) {
       case 201:
         alert('도메인 정보가 성공적으로 업데이트되었습니다.');
-        loadPage('domainList');
+        location.href = '/domains';
         break;
       case 400:
         alert('옳바르지 않은 내용을 입력하였습니다.');
-        loadPage('domainSearch');
+        location.href = '/';
         break;
       case 401:
         alert("로그인이 필요합니다.");
-        loadPage('auth');
+        location.href = '/login';
         break;
       case 403:
         alert("해당 도메인에 대한 접근 권한이 없습니다.");
-        loadPage('domainList');
+        location.href = '/domains';
         break;
       case 409:
         alert("최대 도메인 수 초과 혹은 이미 작업중인 도메인 입니다.");
-        loadPage('domainList');
+        location.href = '/domains';
         break;
       default:
         alert('도메인 정보 업데이트가 실패하였습니다.');
@@ -342,7 +288,6 @@ async function deleteDomain() {
   }
 
   try {
-    // 레코드를 생성 또는 업데이트하는 API 엔드포인트
     const response = await fetch(`/api/delete-record/${selectedDomain}/${selectedZone}`, {
       method: 'DELETE',
     });
@@ -350,21 +295,20 @@ async function deleteDomain() {
 
     if (statusCode === 401) {
       alert("로그인이 필요합니다.");
-      loadPage('auth');
+      location.href = '/login';
       return;
     }
 
     if (statusCode === 403) {
       alert("해당 도메인에 대한 접근 권한이 없습니다.");
-      loadPage('domainList');
+      location.href = '/domains';
       return;
     }
 
     if (response.ok) {
       alert('도메인이 성공적으로 삭제되었습니다.');
-      loadPage('domainList');
+      location.href = '/domains';
     } else {
-      const errorData = await response.json();
       alert('알 수 없는 오류가 발생했습니다.');
     }
 
@@ -375,10 +319,8 @@ async function deleteDomain() {
 
 // 회원탈퇴
 async function leave() {
-  pass = prompt("정말로 회원탈퇴를 진행하시겠습니까? 탈퇴를 원하시면 '탈퇴' 를 입력해주세요.");
-  isPass = pass === "탈퇴";
-
-  if (!isPass) {
+  const pass = prompt("정말로 회원탈퇴를 진행하시겠습니까? 탈퇴를 원하시면 '탈퇴' 를 입력해주세요.");
+  if (pass !== "탈퇴") {
     alert("회원탈퇴가 취소되었습니다.");
     return;
   }
@@ -390,7 +332,7 @@ async function leave() {
 
     if (response.ok) {
       alert('회원탈퇴가 성공적으로 처리되었습니다.');
-      window.location.reload();
+      window.location.href = '/';
     } else {
       alert('회원탈퇴 중 오류가 발생했습니다. 다시 시도해주세요.');
     }
@@ -401,28 +343,29 @@ async function leave() {
 
 // 만료일 갱신
 async function renewDate(subDomain, zone) {
-  const response = await fetch(`/api/update-record/${subDomain}/${zone}`, {
-    method: 'PATCH',
-  });
+  try {
+    const response = await fetch(`/api/update-record/${subDomain}/${zone}`, {
+      method: 'PATCH',
+    });
 
-  const resultCode = response.status;
+    const resultCode = response.status;
 
-  if (resultCode === 200) {
-    alert('도메인 만료일이 성공적으로 갱신되었습니다.');
-    loadPage('domainList');
-  } else if (resultCode === 401) {
-    alert('로그인이 필요합니다.');
-    loadPage('auth');
-    return;
-  } else if (resultCode === 403) {
-    alert('해당 도메인에 대한 접근 권한이 없습니다.');
-  } else if (resultCode === 400) {
-    alert('만료일 갱신은 1달 전 부터 가능합니다.');
-  } else {
-    alert('도메인 만료일 갱신 중 오류가 발생했습니다. 다시 시도해주세요.');
+    if (resultCode === 200) {
+      alert('도메인 만료일이 성공적으로 갱신되었습니다.');
+      location.reload();
+    } else if (resultCode === 401) {
+      alert('로그인이 필요합니다.');
+      location.href = '/login';
+    } else if (resultCode === 403) {
+      alert('해당 도메인에 대한 접근 권한이 없습니다.');
+    } else if (resultCode === 400) {
+      alert('만료일 갱신은 1달 전 부터 가능합니다.');
+    } else {
+      alert('도메인 만료일 갱신 중 오류가 발생했습니다. 다시 시도해주세요.');
+    }
+  } catch (error) {
+    alert('서버와의 통신 중 오류가 발생했습니다.');
   }
-
-  loadPage('domainList');
 }
 
 // 만료일에 맞는 id 반환
@@ -437,32 +380,3 @@ function getExpirationClass(expirationDate) {
 
   return diffDays < 30 ? 'status-no' : '';
 }
-
-// 정지 계정 처리
-document.addEventListener('DOMContentLoaded', () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const status = urlParams.get('status');
-
-  if (status === 'banned') {
-    loadPage('banned');
-    document.getElementById('authSection').innerHTML = `<span style="color:red">차단된 계정</span>`;
-  } else {
-    checkAuth();
-    loadPage('domainSearch');
-  }
-});
-
-document.addEventListener("DOMContentLoaded", () => {
-    checkAuth();
-    // 1. 현재 URL의 쿼리 파라미터 확인
-    const urlParams = new URLSearchParams(window.location.search);
-
-    // 2. login=required 파라미터가 있는지 확인
-    if (urlParams.get("login") === "required") {
-        // 3. 파라미터가 있다면 로그인 페이지 로드 함수 실행
-        loadPage("login");
-
-        // 4. (선택사항) 주소창이 지저분해 보이지 않도록 파라미터 제거
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-});

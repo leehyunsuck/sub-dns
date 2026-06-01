@@ -1,4 +1,4 @@
-package top.nulldns.subdns.controller;
+package top.nulldns.subdns.controller.test;
 
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -7,7 +7,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
+import top.nulldns.subdns.SubDNSScheduler;
 import top.nulldns.subdns.dao.Member;
+import top.nulldns.subdns.repository.HaveSubDomainRepository;
+import top.nulldns.subdns.service.domain.HaveSubDomainService;
 import top.nulldns.subdns.service.facade.AuthService;
 import top.nulldns.subdns.service.facade.PDNSService;
 import top.nulldns.subdns.service.domain.CheckAdminService;
@@ -30,9 +33,9 @@ public class TestController {
     private final PDNSService pdnsService;
     private final AuthService authService;
     private final CheckAdminService checkAdminService;
-    private final top.nulldns.subdns.SubDNSScheduler subDNSScheduler;
-    private final top.nulldns.subdns.service.domain.HaveSubDomainService haveSubDomainService;
-    private final top.nulldns.subdns.repository.HaveSubDomainRepository haveSubDomainRepository;
+    private final SubDNSScheduler subDNSScheduler;
+    private final HaveSubDomainService haveSubDomainService;
+    private final HaveSubDomainRepository haveSubDomainRepository;
 
     private static final String TEST_PROVIDER = "test_provider";
     private static final String TEST_ZONE = "nulldns.top"; // Assuming this is one of the cachedZoneNames

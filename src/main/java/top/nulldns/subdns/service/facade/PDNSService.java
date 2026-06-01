@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import top.nulldns.subdns.config.PdnsProperties;
 import top.nulldns.subdns.config.finalconfig.Action;
 import top.nulldns.subdns.config.finalconfig.Status;
 import top.nulldns.subdns.dto.PDNSDto;
@@ -37,13 +38,10 @@ public class PDNSService {
     private final RestClient.Builder restClientBuilder;
     private final CheckAdminService checkAdminService;
     private final LockService lockService;
+    private final PdnsProperties pdnsProperties;
 
     private static final String LOCK_KEY_PREFIX = "pdns:";
 
-    @Value("${pdns.url}")
-    private String pdnsUrl;
-    @Value("${pdns.api-key}")
-    private String pdnsApiKey;
     private RestClient restClient;
     @Getter
     private Set<PDNSDto.ZoneName> cachedZoneNames = Set.of();
@@ -54,8 +52,8 @@ public class PDNSService {
     @PostConstruct
     private void init() {
         this.restClient = restClientBuilder
-                .baseUrl(pdnsUrl)
-                .defaultHeader("X-API-Key", pdnsApiKey)
+                .baseUrl(pdnsProperties.getUrl())
+                .defaultHeader("X-API-Key", pdnsProperties.getApiKey())
                 .build();
 
         try {
@@ -236,13 +234,42 @@ public class PDNSService {
     }
 
     /**
+     * 존 생성
+     * @param zoneName 존 이름
+     */
+    public void createZone(String zoneName) {
+        if (!zoneName.endsWith(".")) {
+            zoneName = zoneName + ".";
+        }
+
+        Map<String, Object> body = Map.of(
+                "name", zoneName,
+                "kind", "Native",
+                "nameservers", List.of()
+        );
+
+        restClient.post()
+                .uri("/servers/localhost/zones")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    throw new IllegalStateException("PowerDNS API 존 생성 중 에러 발생: " + res.getStatusCode());
+                })
+                .toBodilessEntity();
+        
+        log.info("존 생성 완료: {}", zoneName);
+        this.cachedZoneNames = this.getZoneNamesSet(); // 캐시 갱신
+    }
+
+    /**
      * 존 삭제
      * @param zoneName 존 이름
      */
     public void deleteZone(String zoneName) {
         restClient.delete()
                 .uri("/servers/localhost/zones/{zone}.", zoneName)
-                .header("X-API-Key", pdnsApiKey)
+                .header("X-API-Key", pdnsProperties.getApiKey())
                 .retrieve()
                 .toBodilessEntity();
         log.info("존 삭제 완료: {}", zoneName);

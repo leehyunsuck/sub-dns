@@ -1,4 +1,4 @@
-package top.nulldns.subdns.controller;
+package top.nulldns.subdns.controller.view;
 
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -13,16 +13,17 @@ import top.nulldns.subdns.service.domain.MemberService;
 public class AuthController {
     private final MemberService memberService;
 
+    @GetMapping("/login")
+    public String login() {
+        return "login";
+    }
+
     @GetMapping("/run-login")
     public String loginSuccess(OAuth2AuthenticationToken token, HttpSession session) {
         String provider = token.getAuthorizedClientRegistrationId();
         String providerId = token.getPrincipal().getAttribute("id").toString();
 
         Member member = memberService.loginOrSignup(provider, providerId);
-        if (member.isBanned()) {
-            session.invalidate();
-            return "redirect:/banned";
-        }
 
         session.setAttribute("id", member.getProvider() + member.getProviderId());
         session.setAttribute("memberId", member.getId());

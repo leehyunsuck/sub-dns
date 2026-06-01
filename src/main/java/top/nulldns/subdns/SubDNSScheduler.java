@@ -25,7 +25,8 @@ public class SubDNSScheduler {
     private final PDNSService pdnsService;
     private final LockService lockService;
     private final StatusRegistryService statusRegistryService;
-
+    // SubDnsProperties는 필요시 추가
+    
     private static final Status[] STATUSES = { Status.ADD_PENDING, Status.UPDATE_PENDING, Status.DELETE_PENDING };
 
     private static final String LOCK_KEY_PREFIX = "scheduler:";

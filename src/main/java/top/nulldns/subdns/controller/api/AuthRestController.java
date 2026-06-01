@@ -1,4 +1,4 @@
-package top.nulldns.subdns.controller;
+package top.nulldns.subdns.controller.api;
 
 import jakarta.servlet.http.HttpSession;
 import lombok.AllArgsConstructor;

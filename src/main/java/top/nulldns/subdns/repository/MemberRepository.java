@@ -11,4 +11,8 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByProviderAndProviderId(String provider, String providerId);
 
     List<Member> findByStatus(Status status);
+
+    List<Member> findByProviderIdContaining(String providerId);
+
+    List<Member> findByBanned(boolean banned);
 }

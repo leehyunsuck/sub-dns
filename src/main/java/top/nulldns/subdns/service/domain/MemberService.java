@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.repository.MemberRepository;
 
+import java.util.List;
 import java.util.NoSuchElementException;
 
 // DB Service
@@ -39,5 +40,48 @@ public class MemberService {
 
     public void delete(Member member) {
         memberRepository.delete(member);
+    }
+
+    public List<Member> getAllMembers() {
+        return memberRepository.findAll();
+    }
+
+    public List<Member> searchMembers(String query) {
+        return memberRepository.findByProviderIdContaining(query);
+    }
+
+    public void setBanned(Long memberId, boolean banned) {
+        Member member = getMemberById(memberId);
+        // Admin은 정지 불가능하게 (옵션)
+        // if (checkAdminService.isAdmin(memberId)) return; 
+        // -> MemberService는 Domain Service라 Facade에서 처리하거나 여기서 직접 확인
+        memberRepository.save(Member.builder()
+                .id(member.getId())
+                .provider(member.getProvider())
+                .providerId(member.getProviderId())
+                .maxRecords(member.getMaxRecords())
+                .banned(banned)
+                .status(member.getStatus())
+                .build());
+    }
+
+    public void updateMaxRecords(Long memberId, int maxRecords) {
+        Member member = getMemberById(memberId);
+        memberRepository.save(Member.builder()
+                .id(member.getId())
+                .provider(member.getProvider())
+                .providerId(member.getProviderId())
+                .maxRecords(maxRecords)
+                .banned(member.isBanned())
+                .status(member.getStatus())
+                .build());
+    }
+
+    public long getTotalCount() {
+        return memberRepository.count();
+    }
+
+    public long getBannedCount() {
+        return memberRepository.findByBanned(true).size();
     }
 }

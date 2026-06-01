@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('관리자 대시보드')}"></head>
+<link rel="stylesheet" th:href="${staticUrl} + 'css/admin.css'">
+<body>
+    <header th:replace="~{fragments/layout :: header}"></header>
+
+    <main id="content" style="max-width: 900px;">
+        <h2>관리자 대시보드</h2>
+        
+        <!-- Stats Section -->
+        <div class="admin-section stats-grid" id="statsArea">
+            <div class="stat-card">
+                <span class="stat-label">총 사용자</span>
+                <span class="stat-value" id="totalUsers">-</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">정지 사용자</span>
+                <span class="stat-value" id="bannedUsers">-</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">총 도메인</span>
+                <span class="stat-value" id="totalDomains">-</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">관리 존(Zone)</span>
+                <span class="stat-value" id="totalZones">-</span>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="admin-tabs">
+            <button class="tab-btn active" onclick="showTab('users')">사용자 관리</button>
+            <button class="tab-btn" onclick="showTab('domains')">도메인 관리</button>
+            <button class="tab-btn" onclick="showTab('zones')">존 관리</button>
+        </div>
+
+        <!-- User Management -->
+        <div id="usersTab" class="tab-content">
+            <div class="search-box">
+                <input type="text" id="userSearchInput" placeholder="사용자 ID 검색...">
+                <button onclick="searchUsers()">검색</button>
+            </div>
+            <div id="userList" class="list"></div>
+        </div>
+
+        <!-- Domain Management -->
+        <div id="domainsTab" class="tab-content hidden">
+            <div class="search-box" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <input type="text" id="domainSearchInput" placeholder="도메인 검색..." style="flex: 1;">
+                <select id="domainSortSelect" onchange="searchDomains(0)">
+                    <option value="expiryDate,asc">만료일 오름차순</option>
+                    <option value="expiryDate,desc">만료일 내림차순</option>
+                    <option value="fullDomain,asc">도메인 오름차순</option>
+                </select>
+                <button onclick="searchDomains(0)">검색</button>
+            </div>
+            <div id="domainList" class="list"></div>
+            <div id="domainPagination" class="pagination"></div>
+        </div>
+
+        <!-- Zone Management -->
+        <div id="zonesTab" class="tab-content hidden">
+            <div class="search-box">
+                <input type="text" id="zoneAddInput" placeholder="새 존 이름 (예: example.com)">
+                <button onclick="addZone()">존 추가</button>
+            </div>
+            <div id="zoneList" class="list"></div>
+        </div>
+    </main>
+
+    <!-- Custom Modal -->
+    <div id="customModal" class="modal hidden">
+        <div class="modal-content">
+            <h3 id="modalTitle">확인</h3>
+            <p id="modalMessage"></p>
+            <input type="text" id="modalInput" class="hidden" placeholder="입력하세요...">
+            <div class="modal-actions">
+                <button id="modalConfirmBtn" class="btn-sm">확인</button>
+                <button id="modalCancelBtn" class="btn-sm btn-cancel" onclick="closeModal()">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner Overlay -->
+    <div id="loadingOverlay" class="overlay hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+    <script th:src="${staticUrl} + 'js/admin.js'"></script>
+</body>
+</html>

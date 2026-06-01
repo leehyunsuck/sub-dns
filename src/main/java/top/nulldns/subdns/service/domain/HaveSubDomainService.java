@@ -115,6 +115,9 @@ public class HaveSubDomainService {
     }
 
     public List<HaveSubDomain> getMemberSubDomainsByFullDomain(Member member, String fullDomain) {
+        if (member == null) {
+            return haveSubDomainRepository.findByFullDomain(fullDomain);
+        }
         return haveSubDomainRepository.findByMemberAndFullDomain(member, fullDomain);
     }
 
@@ -137,5 +140,36 @@ public class HaveSubDomainService {
         }
 
         return subDomains;
+    }
+
+    public List<HaveSubDomain> searchSubDomains(String query) {
+        return haveSubDomainRepository.findByFullDomainContaining(query);
+    }
+
+    public List<HaveSubDomain> getAllSubDomains() {
+        return haveSubDomainRepository.findAll();
+    }
+
+    public void transferOwnership(String fullDomain, Member newOwner) {
+        List<HaveSubDomain> subDomains = haveSubDomainRepository.findByFullDomain(fullDomain);
+        for (HaveSubDomain subDomain : subDomains) {
+            haveSubDomainRepository.save(HaveSubDomain.builder()
+                    .id(subDomain.getId())
+                    .member(newOwner)
+                    .fullDomain(subDomain.getFullDomain())
+                    .recordType(subDomain.getRecordType())
+                    .content(subDomain.getContent())
+                    .expiryDate(subDomain.getExpiryDate())
+                    .domainStatus(subDomain.getDomainStatus())
+                    .build());
+        }
+    }
+
+    public long getTotalDomainCount() {
+        return haveSubDomainRepository.countTotalDomains();
+    }
+
+    public List<Object[]> getRecordTypeStats() {
+        return haveSubDomainRepository.countByRecordType();
     }
 }

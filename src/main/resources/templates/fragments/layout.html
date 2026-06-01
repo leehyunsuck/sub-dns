@@ -43,6 +43,7 @@
                 <a href="/login">로그인</a>
             </th:block>
             <th:block th:if="${isLoggedIn}">
+                <a href="/admin" th:if="${isAdmin}">관리자</a>
                 <a href="#" onclick="logout(); return false;">로그아웃</a>
                 <a href="#" onclick="leave(); return false;">회원탈퇴</a>
                 <span th:text="${userId} + '님'">사용자님</span>

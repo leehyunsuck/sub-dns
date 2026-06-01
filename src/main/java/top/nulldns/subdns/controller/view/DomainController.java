@@ -1,31 +1,21 @@
-package top.nulldns.subdns.controller;
+package top.nulldns.subdns.controller.view;
 
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.ui.Model;
 import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.service.domain.HaveSubDomainService;
 import top.nulldns.subdns.service.domain.MemberService;
 
 @Controller
 @RequiredArgsConstructor
-public class IndexController {
+public class DomainController {
 
     private final MemberService memberService;
     private final HaveSubDomainService haveSubDomainService;
-
-    @GetMapping("/")
-    public String index() {
-        return "index";
-    }
-
-    @GetMapping("/login")
-    public String login() {
-        return "login";
-    }
 
     @GetMapping("/domains")
     public String domains() {
@@ -37,7 +27,9 @@ public class IndexController {
                                @RequestParam(required = false) String zone,
                                HttpSession session,
                                Model model) {
-        
+
+        boolean isNew = true;
+
         // 도메인 상세 조회 시 권한 체크
         if (subDomain != null && zone != null) {
             Long memberId = (Long) session.getAttribute("memberId");
@@ -48,18 +40,19 @@ public class IndexController {
             Member member = memberService.getMemberById(memberId);
             String fullDomain = subDomain + "." + zone;
 
-            if (!haveSubDomainService.isOwnerOfDomain(member, fullDomain)) {
+            boolean isOwner = haveSubDomainService.isOwnerOfDomain(member, fullDomain);
+            boolean canAdd = haveSubDomainService.canAddSubDomain(fullDomain);
+
+            if (!isOwner && !canAdd) {
                 return "redirect:/domains";
             }
+
+            isNew = !isOwner;
         }
 
         model.addAttribute("subDomain", subDomain);
         model.addAttribute("zone", zone);
+        model.addAttribute("isNew", isNew);
         return "domainDetail";
-    }
-
-    @GetMapping("/banned")
-    public String banned() {
-        return "banned";
     }
 }

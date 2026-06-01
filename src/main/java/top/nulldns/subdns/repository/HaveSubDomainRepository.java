@@ -47,4 +47,19 @@ public interface HaveSubDomainRepository extends JpaRepository<HaveSubDomain, Lo
     boolean existsByFullDomainAndMember(String fullDomain, Member member);
 
     HaveSubDomain findByMemberAndFullDomainAndRecordType(Member member, String fullDomain, String recordType);
+
+    List<HaveSubDomain> findByFullDomainContaining(String fullDomain);
+
+    org.springframework.data.domain.Page<HaveSubDomain> findAll(org.springframework.data.domain.Pageable pageable);
+
+    org.springframework.data.domain.Page<HaveSubDomain> findByFullDomainContaining(String fullDomain, org.springframework.data.domain.Pageable pageable);
+
+    @Query("SELECT h FROM HaveSubDomain h WHERE h.member.id = :memberId")
+    List<HaveSubDomain> findByMemberId(@Param("memberId") Long memberId);
+
+    @Query("SELECT COUNT(DISTINCT h.fullDomain) FROM HaveSubDomain h")
+    long countTotalDomains();
+
+    @Query("SELECT h.recordType, COUNT(h) FROM HaveSubDomain h GROUP BY h.recordType")
+    List<Object[]> countByRecordType();
 }

@@ -5,7 +5,7 @@
     <header th:replace="~{fragments/layout :: header}"></header>
 
     <main id="content">
-        <h2 id="domainTitle" th:text="${subDomain != null && zone != null} ? ${subDomain} + '.' + ${zone} : '신규 도메인 등록'">도메인 상세</h2>
+        <h2 id="domainTitle" th:text="${isNew} ? '신규 도메인 등록 (' + ${subDomain} + '.' + ${zone} + ')' : '도메인 상세 설정 (' + ${subDomain} + '.' + ${zone} + ')'">도메인 상세</h2>
         <div class="form-group">
             <label>레코드 타입</label>
             <select id="recordType" onchange="onRecordTypeChange()">
@@ -20,8 +20,8 @@
             <input type="text" id="recordValue" placeholder="예: 192.168.1.1">
         </div>
 
-        <button id="saveBtn" onclick="submitRegistration()">등록 완료</button>
-        <button class="btn-cancel" th:if="${subDomain != null && zone != null}" onclick="deleteDomain()">도메인 삭제</button>
+        <button id="saveBtn" onclick="submitRegistration()" th:text="${isNew} ? '등록 완료' : '수정 완료'">등록 완료</button>
+        <button class="btn-cancel" th:if="${!isNew}" onclick="deleteDomain()">도메인 삭제</button>
         <button class="btn-cancel" onclick="location.href='/domains'">취소</button>
     </main>
 
@@ -31,12 +31,11 @@
         /*<![CDATA[*/
         const subDomainParam = [[${subDomain}]];
         const zoneParam = [[${zone}]];
+        const isNewParam = [[${isNew}]];
 
         document.addEventListener('DOMContentLoaded', () => {
             if (subDomainParam && zoneParam) {
-                openDomainDetail(subDomainParam, zoneParam, false);
-            } else {
-                // 신규 등록 로직 (필요시)
+                openDomainDetail(subDomainParam, zoneParam, isNewParam);
             }
         });
         /*]]>*/

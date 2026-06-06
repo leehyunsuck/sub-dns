@@ -50,7 +50,7 @@ header h1 .brand-null {
 nav {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 nav a {
@@ -77,10 +77,12 @@ nav a:hover::after {
 
 /* === Auth Area === */
 .auth-area {
-  margin-left: 1rem;
+  margin-left: 0;
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 1rem;
 }
 
 #userMenu {
@@ -382,7 +384,7 @@ p.msg {
   }
 
   nav {
-    gap: 0.6rem;
+    gap: 0.8rem;
   }
 
   nav a {
@@ -390,8 +392,9 @@ p.msg {
   }
 
   .auth-area {
-    margin-left: 0.5rem;
-    gap: 0.4rem;
+    margin-left: 0;
+    padding-left: 0.8rem;
+    gap: 0.6rem;
   }
 
   #userMenu {
@@ -403,3 +406,94 @@ p.msg {
   }
 }
 
+/* Dropdown CSS */
+.user-menu-container {
+    position: relative;
+    display: inline-block;
+}
+.user-name {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--accent-blue);
+    padding: 5px 10px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+.user-name:hover {
+    background: #f0f0f0;
+}
+.user-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    padding: 0.75rem;
+    z-index: 100;
+    min-width: 140px;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 5px;
+}
+.user-dropdown.show {
+    display: flex;
+}
+.user-dropdown a {
+    font-size: 0.9rem;
+    text-decoration: none;
+    color: #333;
+    padding: 5px;
+    border-radius: 4px;
+}
+.user-dropdown a:hover {
+    background: #f8f9fa;
+}
+.user-dropdown a.btn-logout {
+    color: var(--danger);
+}
+
+/* === Banned Page === */
+.banned-title {
+  color: var(--danger);
+  text-align: center;
+  font-size: 1.5rem;
+  margin-top: 2rem;
+}
+
+.banned-msg {
+  text-align: center;
+  line-height: 1.8;
+  color: var(--text-main);
+  margin: 2rem 0;
+}
+
+.banned-action {
+  text-align: center;
+}
+
+.btn-banned-confirm {
+  padding: 10px 30px;
+  cursor: pointer;
+}
+
+/* === Layout & Login === */
+.nav-admin-link {
+  /* padding or margin removed for uniform gap */
+}
+
+.nav-leave-link {
+  color: #666;
+  font-size: 0.8rem;
+  border-top: 1px solid #eee;
+  margin-top: 5px;
+  padding-top: 8px;
+}
+
+.github-icon {
+  height: 20px;
+  vertical-align: middle;
+  margin-right: 8px;
+}

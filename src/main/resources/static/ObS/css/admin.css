@@ -261,3 +261,17 @@
 .hidden {
     display: none !important;
 }
+
+.admin-content {
+    max-width: 900px;
+}
+
+.admin-search-box {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.admin-search-input {
+    flex: 1;
+}

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Header Mockup | NullDNS</title>
+    <link rel="stylesheet" href="https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axxumyz085bt/b/nulldns.top/o/css/style.css">
+    <style>
+        .mockup-section {
+            margin: 40px auto;
+            max-width: 1000px;
+            border: 1px dashed #ccc;
+            padding: 20px;
+            background: #fff;
+        }
+        .mockup-label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #666;
+            display: block;
+            font-size: 0.9rem;
+        }
+        body {
+            background: #f0f2f5;
+        }
+
+        /* Dropdown CSS for mockup */
+        .user-menu-container {
+            position: relative;
+            display: inline-block;
+        }
+        .user-name {
+            cursor: pointer;
+            font-weight: 600;
+            color: #007bff; /* var(--accent-blue) */
+            padding: 5px 10px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .user-name:hover {
+            background: #f0f0f0;
+        }
+        .user-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #fff;
+            border: 1px solid #e5e7eb; /* var(--border) */
+            border-radius: 10px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 0.75rem;
+            z-index: 100;
+            min-width: 140px;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 5px;
+        }
+        .user-dropdown.show {
+            display: flex;
+        }
+        .user-dropdown a {
+            font-size: 0.9rem;
+            text-decoration: none;
+            color: #333;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .user-dropdown a:hover {
+            background: #f8f9fa;
+        }
+        .user-dropdown a.btn-logout {
+            color: #dc3545; /* var(--danger) */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="mockup-section">
+        <span class="mockup-label">1. 로그인 전 (Guest)</span>
+        <header>
+            <h1 style="cursor: pointer;">
+                <span class="brand-null">Null</span>DNS
+            </h1>
+            <nav>
+                <a href="#">도메인 검색</a>
+                <span class="auth-area">
+                    <a href="#">로그인</a>
+                </span>
+            </nav>
+        </header>
+    </div>
+
+    <div class="mockup-section">
+        <span class="mockup-label">2. 로그인 후 (일반 사용자)</span>
+        <header>
+            <h1 style="cursor: pointer;">
+                <span class="brand-null">Null</span>DNS
+            </h1>
+            <nav>
+                <a href="#">도메인 검색</a>
+                <a href="#">도메인 관리</a>
+                <span class="auth-area">
+                    <div class="user-menu-container">
+                        <span class="user-name" onclick="toggleMenu(this)">testuser님</span>
+                        <div class="user-dropdown">
+                            <a href="#" onclick="return false;" class="btn-logout">로그아웃</a>
+                            <a href="#" onclick="return false;" style="color: #666; font-size: 0.8rem; border-top: 1px solid #eee; margin-top: 5px; padding-top: 8px;">회원탈퇴</a>
+                        </div>
+                    </div>
+                </span>
+            </nav>
+        </header>
+    </div>
+
+    <div class="mockup-section">
+        <span class="mockup-label">3. 로그인 후 (관리자)</span>
+        <header>
+            <h1 style="cursor: pointer;">
+                <span class="brand-null">Null</span>DNS
+            </h1>
+            <nav>
+                <a href="#">도메인 검색</a>
+                <a href="#">도메인 관리</a>
+                <span class="auth-area">
+                    <a href="#" style="margin-right: 10px;">관리자</a>
+                    <div class="user-menu-container">
+                        <span class="user-name" onclick="toggleMenu(this)">admin님</span>
+                        <div class="user-dropdown">
+                            <a href="#" onclick="return false;" class="btn-logout">로그아웃</a>
+                            <a href="#" onclick="return false;" style="color: #666; font-size: 0.8rem; border-top: 1px solid #eee; margin-top: 5px; padding-top: 8px;">회원탈퇴</a>
+                        </div>
+                    </div>
+                </span>
+            </nav>
+        </header>
+    </div>
+
+    <script>
+        function toggleMenu(el) {
+            const dropdown = el.nextElementSibling;
+            // 다른 열려있는 드롭다운 닫기
+            document.querySelectorAll('.user-dropdown').forEach(d => {
+                if (d !== dropdown) d.classList.remove('show');
+            });
+            dropdown.classList.toggle('show');
+            event.stopPropagation();
+        }
+
+        // 바깥 클릭 시 닫기
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('show'));
+        });
+    </script>
+
+</body>
+</html>

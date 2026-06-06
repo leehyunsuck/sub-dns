@@ -42,6 +42,10 @@ out/
 ### VS Code ###
 .vscode/
 
-Logs.txt
-RunUser.txt
+### AI ###
+.agents/
 Gemini.md
+
+### custom ###
+RunUser.txt
+

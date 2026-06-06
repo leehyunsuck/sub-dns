@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('도메인 상세 설정')}"></head>
+<head th:replace="~{fragments/layout :: head('도메인 상세 설정')}">
+    <meta charset="UTF-8">
+    <title>도메인 상세 설정</title>
+    <link rel="stylesheet" href="https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axxumyz085bt/b/nulldns.top/o/css/style.css">
+</head>
 <body>
     <header th:replace="~{fragments/layout :: header}"></header>
 
     <main id="content">
-        <h2 id="domainTitle" th:text="${isNew} ? '신규 도메인 등록 (' + ${subDomain} + '.' + ${zone} + ')' : '도메인 상세 설정 (' + ${subDomain} + '.' + ${zone} + ')'">도메인 상세</h2>
+        <h2 id="domainTitle" th:text="${isNew} ? |신규 도메인 등록 (${subDomain}.${zone})| : |도메인 상세 설정 (${subDomain}.${zone})|">도메인 상세</h2>
         <div class="form-group">
             <label>레코드 타입</label>
             <select id="recordType" onchange="onRecordTypeChange()">
@@ -29,9 +33,9 @@
     <div th:replace="~{fragments/layout :: scripts}"></div>
     <script th:inline="javascript">
         /*<![CDATA[*/
-        const subDomainParam = [[${subDomain}]];
-        const zoneParam = [[${zone}]];
-        const isNewParam = [[${isNew}]];
+        const subDomainParam = /*[[${subDomain}]]*/ null;
+        const zoneParam = /*[[${zone}]]*/ null;
+        const isNewParam = /*[[${isNew}]]*/ false;
 
         document.addEventListener('DOMContentLoaded', () => {
             if (subDomainParam && zoneParam) {

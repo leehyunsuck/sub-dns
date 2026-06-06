@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('로그인')}"></head>
+<head th:replace="~{fragments/layout :: head('로그인')}">
+    <meta charset="UTF-8">
+    <title>로그인</title>
+    <link rel="stylesheet" href="https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axxumyz085bt/b/nulldns.top/o/css/style.css">
+</head>
 <body>
     <header th:replace="~{fragments/layout :: header}"></header>
 
@@ -13,14 +17,14 @@
         </div>
 
         <button id="githubLoginBtn" onclick="loginWithGitHub()">
-            <img id="githubIcon" th:src="${staticUrl} + 'assets/github-mark.svg'" alt="GitHub Logo" style="height: 20px; vertical-align: middle; margin-right: 8px;">
+            <img id="githubIcon" class="github-icon" th:src="|${staticUrl}assets/github-mark.svg|" alt="GitHub Logo">
             GitHub 계정으로 로그인
         </button>
 
         <div class="checkbox-group">
             <input type="checkbox" id="agree" name="agree">
             <label for="agree">
-                <a href="https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axxumyz085bt/b/nulldns.top/o/ToS.txt" target="_blank">이용약관</a> 동의
+                <a th:href="|${staticUrl}ToS.txt|" target="_blank">이용약관</a> 동의
             </label>
         </div>
     </main>

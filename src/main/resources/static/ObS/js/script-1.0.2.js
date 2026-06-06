@@ -380,3 +380,20 @@ function getExpirationClass(expirationDate) {
 
   return diffDays < 30 ? 'status-no' : '';
 }
+
+// User Menu Dropdown Toggle
+function toggleMenu(e, el) {
+  const dropdown = el.nextElementSibling;
+  document.querySelectorAll('.user-dropdown').forEach(d => {
+    if (d !== dropdown) d.classList.remove('show');
+  });
+  dropdown.classList.toggle('show');
+  if (e) {
+    e.stopPropagation();
+  }
+}
+
+// 바깥 클릭 시 닫기
+document.addEventListener('click', () => {
+  document.querySelectorAll('.user-dropdown').forEach(d => d.classList.remove('show'));
+});

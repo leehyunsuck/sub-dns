@@ -1,11 +1,16 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('관리자 대시보드')}"></head>
-<link rel="stylesheet" th:href="${staticUrl} + 'css/admin.css'">
+<head th:replace="~{fragments/layout :: head('관리자 대시보드')}">
+    <meta charset="UTF-8">
+    <title>관리자 대시보드</title>
+    <link rel="stylesheet" href="https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axxumyz085bt/b/nulldns.top/o/css/style.css">
+    <link rel="stylesheet" href="https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axxumyz085bt/b/nulldns.top/o/css/admin.css">
+</head>
+<link rel="stylesheet" th:href="|${staticUrl}css/admin.css|">
 <body>
     <header th:replace="~{fragments/layout :: header}"></header>
 
-    <main id="content" style="max-width: 900px;">
+    <main id="content" class="admin-content">
         <h2>관리자 대시보드</h2>
         
         <!-- Stats Section -->
@@ -46,8 +51,8 @@
 
         <!-- Domain Management -->
         <div id="domainsTab" class="tab-content hidden">
-            <div class="search-box" style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <input type="text" id="domainSearchInput" placeholder="도메인 검색..." style="flex: 1;">
+            <div class="search-box admin-search-box">
+                <input type="text" id="domainSearchInput" class="admin-search-input" placeholder="도메인 검색...">
                 <select id="domainSortSelect" onchange="searchDomains(0)">
                     <option value="expiryDate,asc">만료일 오름차순</option>
                     <option value="expiryDate,desc">만료일 내림차순</option>
@@ -88,6 +93,6 @@
     </div>
 
     <div th:replace="~{fragments/layout :: scripts}"></div>
-    <script th:src="${staticUrl} + 'js/admin.js'"></script>
+    <script th:src="|${staticUrl}js/admin.js|"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/layout :: head('로그인')}">
     <meta charset="UTF-8">
     <title>로그인</title>
-    <link rel="stylesheet" href="https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axxumyz085bt/b/nulldns.top/o/css/style.css">
+    <link rel="stylesheet" href="../static/ObS/css/style.css" th:href="|${staticUrl}css/style.css|">
 </head>
 <body>
     <header th:replace="~{fragments/layout :: header}"></header>
@@ -17,14 +17,14 @@
         </div>
 
         <button id="githubLoginBtn" onclick="loginWithGitHub()">
-            <img id="githubIcon" class="github-icon" th:src="|${staticUrl}assets/github-mark.svg|" alt="GitHub Logo">
+            <img id="githubIcon" class="github-icon" src="../static/ObS/assets/github-mark.svg" th:src="|${staticUrl}assets/github-mark.svg|" alt="GitHub Logo">
             GitHub 계정으로 로그인
         </button>
 
         <div class="checkbox-group">
             <input type="checkbox" id="agree" name="agree">
             <label for="agree">
-                <a th:href="|${staticUrl}ToS.txt|" target="_blank">이용약관</a> 동의
+                <a href="../static/ObS/ToS.txt" th:href="|${staticUrl}ToS.txt|" target="_blank">이용약관</a> 동의
             </label>
         </div>
     </main>

@@ -14,16 +14,16 @@
     <meta property="og:image" th:content="|${staticUrl}assets/og-image.png|">
 
     <!-- favicon -->
-    <link rel="icon" th:href="|${staticUrl}assets/favicon.ico|">
+    <link rel="icon" href="../../static/ObS/assets/favicon.ico" th:href="|${staticUrl}assets/favicon.ico|">
     <link rel="icon" type="image/png"
           th:each="size : ${ {16, 32, 48, 64, 192, 512} }"
           th:sizes="|${size}x${size}|"
           th:href="|${staticUrl}assets/favicon-${size}.png|">
     <link rel="apple-touch-icon" sizes="180x180"
-          th:href="|${staticUrl}assets/favicon-180.png|">
+          href="../../static/ObS/assets/favicon-180.png" th:href="|${staticUrl}assets/favicon-180.png|">
 
     <!-- stylesheet -->
-    <link rel="stylesheet" href="https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axxumyz085bt/b/nulldns.top/o/css/style.css" th:href="|${staticUrl}css/style.css|">
+    <link rel="stylesheet" href="../../static/ObS/css/style.css" th:href="|${staticUrl}css/style.css|">
 
     <!-- google ads -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3480088971158917"
@@ -58,7 +58,7 @@
 
 <div th:fragment="footer" class="service-info">
     <h1>서비스 안내</h1>
-    <p><a th:href="|${staticUrl}Term.txt|">도메인 종류 및 정보</a>를 통해 갱신 예정이 없는 도메인을 알 수 있습니다.</p>
+    <p><a href="../../static/ObS/Term.txt" th:href="|${staticUrl}Term.txt|">도메인 종류 및 정보</a>를 통해 갱신 예정이 없는 도메인을 알 수 있습니다.</p>
     <ul>
         <li>해당 서비스는 서브도메인 등록 및 관리 기능을 제공합니다.</li>
         <li>도메인은 최대 10개까지 등록할 수 있으며, 각 도메인은 등록일로부터 6개월 후 만료됩니다.</li>
@@ -71,7 +71,7 @@
 </div>
 
 <div th:fragment="scripts">
-    <script th:src="|${staticUrl}js/script-1.0.2.js|"></script>
+    <script src="../../static/ObS/js/script-1.0.2.js" th:src="|${staticUrl}js/script-1.0.2.js|"></script>
     <script th:inline="javascript">
         const staticUrl = /*[[${staticUrl}]]*/ 'https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axxumyz085bt/b/nulldns.top/o/';
     </script>

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:fragment="head(title)">
+<head th:fragment="head(title, showAds)">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="|${title} | NullDNS|">NullDNS</title>
@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="../../static/ObS/css/style.css" th:href="|${staticUrl}css/style.css|">
 
     <!-- google ads -->
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3480088971158917"
+    <script th:if="${showAds}" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3480088971158917"
             crossorigin="anonymous"></script>
 </head>
 
@@ -65,7 +65,7 @@
 
 <div th:fragment="footer" class="service-info">
     <h1>서비스 안내</h1>
-    <p><a href="../../static/ObS/Term.txt" th:href="|${staticUrl}Term.txt|">도메인 종류 및 정보</a>를 통해 갱신 예정이 없는 도메인을 알 수 있습니다.</p>
+    <p><a href="/domain-info">도메인 종류 및 정보</a>를 통해 갱신 예정이 없는 도메인을 알 수 있습니다.</p>
     <ul>
         <li>해당 서비스는 서브도메인 등록 및 관리 기능을 제공합니다.</li>
         <li>도메인은 최대 10개까지 등록할 수 있으며, 각 도메인은 등록일로부터 6개월 후 만료됩니다.</li>

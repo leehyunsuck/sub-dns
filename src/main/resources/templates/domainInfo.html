@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('도메인 종류 및 정보', true)}">
+    <meta charset="UTF-8">
+    <title>도메인 종류 및 정보</title>
+</head>
+<body>
+    <header th:replace="~{fragments/layout :: header}"></header>
+
+    <main id="content" class="policy-container">
+        <h2 style="margin-bottom: 20px; font-size: 1.5rem; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 10px;">도메인 종류 및 갱신 정보</h2>
+        
+        <div class="policy-text" style="line-height: 1.6; color: #333; margin-top: 20px;">
+            <p>NullDNS에서 제공 중인 서브도메인의 기준 도메인(Zone)별 갱신 정보를 안내해 드립니다.<br>
+            갱신 예정 여부가 'X'인 도메인은 만료일 이후 더 이상 연장되지 않으므로, 해당 서브도메인 이용자께서는 참고해 주시기 바랍니다.</p>
+
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left;">
+                <thead>
+                    <tr style="background-color: #f8f9fa; border-bottom: 2px solid #ddd;">
+                        <th style="padding: 12px; border-bottom: 1px solid #ddd;">도메인 (Zone)</th>
+                        <th style="padding: 12px; border-bottom: 1px solid #ddd;">만료일</th>
+                        <th style="padding: 12px; border-bottom: 1px solid #ddd;">갱신 예정 여부</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding: 12px; border-bottom: 1px solid #ddd;"><strong>nulldns.top</strong></td>
+                        <td style="padding: 12px; border-bottom: 1px solid #ddd;">2026.09.04</td>
+                        <td style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold; color: #28a745;">O (예정)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <div th:replace="~{fragments/layout :: footer}"></div>
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

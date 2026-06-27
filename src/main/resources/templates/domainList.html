@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('보유 도메인 관리')}">
+<head th:replace="~{fragments/layout :: head('보유 도메인 관리', true)}">
     <meta charset="UTF-8">
     <title>보유 도메인 관리</title>
     <link rel="stylesheet" href="../static/ObS/css/style.css" th:href="|${staticUrl}css/style.css|">
@@ -15,7 +15,7 @@
         </div>
     </main>
 
-    <div th:replace="~{fragments/layout :: footer}"></div>
+    <!-- <div th:replace="~{fragments/layout :: footer}"></div> --> <!-- 여기에 필요 없음 -->
     <div th:replace="~{fragments/layout :: scripts}"></div>
     <script>
         document.addEventListener('DOMContentLoaded', loadUserDomains);

@@ -17,4 +17,19 @@ public class IndexController {
     public String banned() {
         return "banned";
     }
+
+    @GetMapping("/terms")
+    public String terms() {
+        return "terms";
+    }
+
+    @GetMapping("/privacy")
+    public String privacy() {
+        return "privacy";
+    }
+
+    @GetMapping("/domain-info")
+    public String domainInfo() {
+        return "domainInfo";
+    }
 }

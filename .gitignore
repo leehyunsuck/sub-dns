@@ -45,6 +45,7 @@ out/
 ### AI ###
 .agents/
 Gemini.md
+AGENTS.md
 
 ### custom ###
 RunUser.txt

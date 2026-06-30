@@ -3,11 +3,11 @@
 <head th:fragment="head(title, showAds)">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="|${title} | NullDNS|">NullDNS</title>
+    <title th:text="${title} + ' | NullDNS'">NullDNS</title>
 
     <meta name="description" content="도메인 없이 무료로 서브도메인을 등록하고 DNS를 관리할 수 있는 서비스. 개발자와 개인 사용자를 위한 간편한 서브도메인 관리 플랫폼">
     <meta name="keywords" content="무료 서브도메인, 서브도메인 등록, 서브도메인 관리, 도메인 관리, DNS 관리">
-    <meta property="og:title" th:content="|${title} | NullDNS|">
+    <meta property="og:title" th:content="${title} + ' | NullDNS'">
     <meta property="og:description" content="DNS 무료 등록 서비스">
     <meta property="og:url" content="https://nulldns.top">
     <meta property="og:type" content="website">
@@ -43,9 +43,14 @@
         </svg>
     </div>
     <nav id="headerNav">
+        <!-- 모바일 전용 닉네임 (가장 상단 배치) -->
+        <div class="mobile-only mobile-user-greeting" th:if="${isLoggedIn}" onclick="openMobileLeavePopup()" th:text="|${userId}님|"></div>
+
         <a href="/">도메인 검색</a>
         <a href="/domains" th:if="${isLoggedIn}">도메인 관리</a>
-        <span class="auth-area">
+        
+        <!-- 데스크탑 전용 우측 상단 UI -->
+        <span class="auth-area desktop-only">
             <th:block th:if="${!isLoggedIn}">
                 <a href="/login">로그인</a>
             </th:block>
@@ -60,7 +65,38 @@
                 </div>
             </th:block>
         </span>
+
+        <!-- 모바일 전용 하단 UI -->
+        <th:block th:if="${isLoggedIn}">
+            <a href="#" onclick="logout(); return false;" class="mobile-only mobile-btn-logout">로그아웃</a>
+            <a href="/admin" th:if="${isAdmin}" class="mobile-only mobile-nav-admin">관리자</a>
+        </th:block>
+        <th:block th:if="${!isLoggedIn}">
+            <a href="/login" class="mobile-only mobile-btn-login">로그인</a>
+        </th:block>
     </nav>
+
+    <!-- 모바일 전용 회원탈퇴 팝업창 -->
+    <div id="mobileLeavePopup" class="mobile-leave-overlay hidden">
+        <div class="mobile-leave-modal">
+            <h3>회원탈퇴</h3>
+            <p>회원탈퇴 관련 안내창입니다.<br>진행하시겠습니까?</p>
+            <div class="modal-actions">
+                <button class="btn-cancel btn-sm" onclick="closeMobileLeavePopup()">취소</button>
+                <button class="btn-sm" style="background-color: var(--danger); color: white; border: none; border-radius: 8px; padding: 6px 14px; font-weight: 600;" onclick="closeMobileLeavePopup(); leave()">회원탈퇴 진행</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function openMobileLeavePopup() {
+            document.getElementById('mobileLeavePopup').classList.remove('hidden');
+            document.getElementById('headerNav').classList.remove('active'); // 햄버거 메뉴 닫기
+        }
+        function closeMobileLeavePopup() {
+            document.getElementById('mobileLeavePopup').classList.add('hidden');
+        }
+    </script>
 </header>
 
 <div th:fragment="footer" class="service-info">

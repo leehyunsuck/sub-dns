@@ -18,7 +18,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
-                        .requestMatchers("/", "/login", "/banned").permitAll()
+                        .requestMatchers("/", "/login", "/banned", "/terms", "/privacy", "/domain-info").permitAll()
                         .requestMatchers("/api/available-domains/**", "/api/me").permitAll()
                         .requestMatchers("/robots.txt", "/sitemap.xml", "/ads.txt").permitAll()
                         .requestMatchers("naver114d2366f4787248382a17a44f17b76b.html", "naver114d2366f4787248382a17a44f17b76b").permitAll()

@@ -18,7 +18,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(bannedInterceptor)
                 .addPathPatterns("/**")
-                .excludePathPatterns("/banned", "/login", "/run-login", "/logout", "/css/**", "/js/**", "/assets/**", "/*.txt", "/*.xml", "/*.html");
+                .excludePathPatterns("/banned", "/login", "/run-login", "/logout", "/css/**", "/js/**", "/assets/**", "/*.txt", "/*.xml", "/*.html", "/terms", "/privacy", "/domain-info");
 
         registry.addInterceptor(adminInterceptor)
                 .addPathPatterns("/admin/**");

@@ -16,15 +16,16 @@ import java.util.NoSuchElementException;
 public class MemberService {
     private final MemberRepository memberRepository;
 
-    public Member loginOrSignup(String provider, String providerId) {
-        return memberRepository.findByProviderAndProviderId(provider, providerId)
-                .orElseGet(() -> {
-                    Member newMember = Member.builder()
-                            .provider(provider)
-                            .providerId(providerId)
-                            .build();
-                    return memberRepository.save(newMember);
-                });
+    public Member findMember(String provider, String providerId) {
+        return memberRepository.findByProviderAndProviderId(provider, providerId).orElse(null);
+    }
+
+    public Member signup(String provider, String providerId) {
+        Member newMember = Member.builder()
+                .provider(provider)
+                .providerId(providerId)
+                .build();
+        return memberRepository.save(newMember);
     }
 
     public Member getMemberById(Long memberId) {

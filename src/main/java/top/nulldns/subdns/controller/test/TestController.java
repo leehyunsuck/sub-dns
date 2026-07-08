@@ -70,7 +70,10 @@ public class TestController {
         try {
             // 1. 사용자 등록
             appendHeader(resultBuilder, "1. 테스트 사용자 등록");
-            Member testMember = memberService.loginOrSignup(TEST_PROVIDER, testProviderId);
+            Member testMember = memberService.findMember(TEST_PROVIDER, testProviderId);
+            if (testMember == null) {
+                testMember = memberService.signup(TEST_PROVIDER, testProviderId);
+            }
             testMemberId = testMember.getId();
             appendResult(resultBuilder, true, String.format("사용자 등록 성공 (MemberId: %d)", testMemberId));
             Thread.sleep(100);

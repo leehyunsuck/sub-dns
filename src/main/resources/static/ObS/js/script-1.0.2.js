@@ -331,7 +331,7 @@ async function leave() {
     });
 
     if (response.ok) {
-      alert('회원탈퇴가 성공적으로 처리되었습니다.');
+      alert('회원탈퇴가 성공적으로 처리되었습니다. 모든 데이터는 즉각 삭제 됩니다.');
       window.location.href = '/';
     } else {
       alert('회원탈퇴 중 오류가 발생했습니다. 다시 시도해주세요.');

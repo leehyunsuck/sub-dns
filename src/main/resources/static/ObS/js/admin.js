@@ -131,17 +131,17 @@ async function toggleUserDomains(memberId, element) {
             return;
         }
 
-        container.innerHTML = '<h4 style="margin: 10px 0 5px 10px; font-size: 0.9rem;">보유 도메인 목록</h4>';
+        container.innerHTML = '<h4 class="admin-domain-list-title">보유 도메인 목록</h4>';
         domains.forEach(d => {
             const dItem = document.createElement('div');
             dItem.className = 'admin-sub-item';
             dItem.innerHTML = `
                 <div class="admin-item-header">
-                    <span class="admin-item-title" style="font-size: 0.85rem;">${d.fullDomain} (${d.recordType})</span>
+                    <span class="admin-item-title admin-item-title-sm">${d.fullDomain} (${d.recordType})</span>
                 </div>
-                <div style="font-size: 0.8rem; color: #666;">${d.content}</div>
-                <div style="font-size: 0.75rem; color: #888; margin-top: 5px;">만료: ${d.expiryDate} | 상태: ${d.domainStatus}</div>
-                <div class="admin-item-actions" style="margin-top: 5px;">
+                <div class="word-break-all admin-item-content">${d.content}</div>
+                <div class="admin-item-meta">만료: ${d.expiryDate} | 상태: ${d.domainStatus}</div>
+                <div class="admin-item-actions admin-item-actions-sm">
                     <button class="btn-admin btn-sm btn-cancel" onclick="deleteDomain('${d.fullDomain}', () => toggleUserDomains(${memberId}, null))">삭제</button>
                     <button class="btn-admin btn-sm" onclick="changeExpiryDate(${d.id}, '${d.expiryDate}', () => toggleUserDomains(${memberId}, null))">만료일</button>
                 </div>
@@ -214,8 +214,8 @@ async function searchDomains(page = 0) {
                     <span class="admin-item-title">${d.fullDomain} (${d.recordType})</span>
                     <span class="badge badge-active">${d.domainStatus}</span>
                 </div>
-                <div style="font-size: 0.85rem; color: #666; margin-bottom: 0.2rem;">${d.content}</div>
-                <div style="font-size: 0.75rem; color: #888; margin-bottom: 0.5rem;">소유자 ID: ${d.memberId} (${d.providerId}) | 만료: ${d.expiryDate}</div>
+                <div class="word-break-all admin-item-content-list">${d.content}</div>
+                <div class="admin-item-meta-list">소유자 ID: ${d.memberId} (${d.providerId}) | 만료: ${d.expiryDate}</div>
                 <div class="admin-item-actions">
                     <button class="btn-admin btn-cancel" onclick="deleteDomain('${d.fullDomain}', () => searchDomains(currentDomainPage))">강제삭제</button>
                     <button class="btn-admin" onclick="transferDomain('${d.fullDomain}', () => searchDomains(currentDomainPage))">소유권이전</button>

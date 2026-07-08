@@ -65,10 +65,16 @@
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
+    align-items: center; /* 추가: 수직 중앙 정렬 */
 }
 
-.search-box input {
+.search-box input,
+.search-box select {
     margin-top: 0;
+}
+
+.search-box select {
+    width: auto;
 }
 
 .search-box button {
@@ -275,3 +281,12 @@
 .admin-search-input {
     flex: 1;
 }
+
+/* 하드코딩 분리 관리자 클래스 */
+.admin-domain-list-title { margin: 10px 0 5px 10px; font-size: 0.9rem; }
+.admin-item-title-sm { font-size: 0.85rem; }
+.admin-item-content { font-size: 0.8rem; color: #666; }
+.admin-item-meta { font-size: 0.75rem; color: #888; margin-top: 5px; }
+.admin-item-actions-sm { margin-top: 5px; }
+.admin-item-content-list { font-size: 0.85rem; color: #666; margin-bottom: 0.2rem; }
+.admin-item-meta-list { font-size: 0.75rem; color: #888; margin-bottom: 0.5rem; }

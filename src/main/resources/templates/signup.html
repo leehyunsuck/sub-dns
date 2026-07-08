@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('회원가입', false)}">
+    <meta charset="UTF-8">
+    <title>회원가입</title>
+    <link rel="stylesheet" href="../static/ObS/css/style.css" th:href="|${staticUrl}css/style.css|">
+</head>
+<body>
+    <header th:replace="~{fragments/layout :: header}"></header>
+
+    <main id="content">
+        <h2>회원가입 안내</h2>
+        <div class="signup-info signup-info-box">
+            <p class="text-danger-bold">미가입된 계정입니다.</p>
+            <p>현재 로그인 시도한 소셜 : <strong th:text="${provider}">구글</strong></p>
+            <p>구분자 : <strong th:text="${providerId}">123456789</strong></p>
+            <p class="text-muted-sm">※ 이메일, 닉네임 등 개인정보는 수집하지 않습니다.</p>
+            
+            <p class="text-bold-mt">회원가입 하시겠습니까?</p>
+        </div>
+
+        <form action="/signup" method="post" id="signupForm">
+            <div class="checkbox-group checkbox-group-wrapper">
+                <input type="checkbox" id="agree" name="agree">
+                <label for="agree">
+                    <a href="/terms" target="_blank">이용약관</a> 및 <a href="/privacy" target="_blank">개인정보처리방침</a> 동의
+                </label>
+            </div>
+
+            <button type="submit" id="signupBtn" disabled>
+                회원가입 및 자동 로그인
+            </button>
+        </form>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const agreeCheckbox = document.getElementById('agree');
+                const signupBtn = document.getElementById('signupBtn');
+                const signupForm = document.getElementById('signupForm');
+
+                agreeCheckbox.addEventListener('change', function() {
+                    if (this.checked) {
+                        signupBtn.disabled = false;
+                    } else {
+                        signupBtn.disabled = true;
+                    }
+                });
+
+                signupForm.addEventListener('submit', function() {
+                    signupBtn.disabled = true;
+                    signupBtn.innerText = '처리 중...';
+                });
+            });
+        </script>
+    </main>
+
+    <div th:replace="~{fragments/layout :: footer}"></div>
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

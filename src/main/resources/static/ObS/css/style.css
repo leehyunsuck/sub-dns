@@ -622,3 +622,25 @@ p.msg {
   flex: 1;
 }
 
+/* 긴 텍스트 줄바꿈 유틸리티 */
+.word-break-all {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+
+/* 하드코딩 분리 공통 클래스 */
+.policy-title { margin-bottom: 20px; font-size: 1.5rem; font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+.policy-text-content { line-height: 1.6; color: #333; margin-top: 20px; }
+.policy-box { background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 30px; }
+.info-table { width: 100%; border-collapse: collapse; margin-top: 20px; text-align: left; }
+.info-table-header { background-color: #f8f9fa; border-bottom: 2px solid #ddd; }
+.info-table th, .info-table td { padding: 12px; border-bottom: 1px solid #ddd; }
+.status-ok-text { font-weight: bold; color: #28a745; }
+.signup-info-box { margin-bottom: 20px; line-height: 1.6; }
+.text-danger-bold { color: #ff4d4f; font-weight: bold; margin-bottom: 10px; }
+.text-muted-sm { margin-top: 10px; font-size: 0.9em; color: #666; }
+.text-bold-mt { margin-top: 20px; font-weight: bold; }
+.checkbox-group-wrapper { margin-bottom: 20px; }
+#signupBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-danger { background-color: var(--danger); color: white; border: none; border-radius: 8px; padding: 6px 14px; font-weight: 600; }
+

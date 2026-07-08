@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <title>관리자 대시보드</title>
     <link rel="stylesheet" href="../static/ObS/css/style.css" th:href="|${staticUrl}css/style.css|">
-    <link rel="stylesheet" href="../static/ObS/css/admin.css" th:href="|${staticUrl}css/admin.css|">
+    <!-- admin.css 링크는 서버 렌더링 시 보존되도록 body로 이동합니다 -->
 </head>
 <body>
+    <link rel="stylesheet" href="../static/ObS/css/admin.css" th:href="|${staticUrl}css/admin.css|">
     <header th:replace="~{fragments/layout :: header}"></header>
 
     <main id="content" class="admin-content">

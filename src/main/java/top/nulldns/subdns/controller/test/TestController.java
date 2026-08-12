@@ -34,7 +34,6 @@ public class TestController {
     private final AuthService authService;
     private final CheckAdminService checkAdminService;
     private final SubDNSScheduler subDNSScheduler;
-    private final HaveSubDomainService haveSubDomainService;
     private final HaveSubDomainRepository haveSubDomainRepository;
 
     private static final String TEST_PROVIDER = "test_provider";
@@ -43,7 +42,6 @@ public class TestController {
 
     @GetMapping("/test")
     @ResponseBody
-    @Transactional
     public String test(HttpSession session) {
         if (session.getAttribute("memberId") == null || session.getAttribute("id") == null) {
             return "<script>alert('로그인이 필요합니다.'); loadPage('auth');</script>";

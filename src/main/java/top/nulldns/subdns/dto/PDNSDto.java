@@ -8,7 +8,6 @@ import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
-// ---------- 리팩토링 필요 -> subDoamin ,zoneName, fullDomain 을 다 name으로 만들어버렸음 (현재는 혼동 주의)
 public class PDNSDto {
     @Data
     public static class AddRecordRequest {
@@ -17,14 +16,6 @@ public class PDNSDto {
                        type,
                        content;
     }
-
-//    @Data
-//    @JsonIgnoreProperties(ignoreUnknown = true)
-//    public static class SearchResult {
-//        private String  name,       // full Domain
-//                        type,
-//                        content;
-//    }
 
     @Data
     @Builder

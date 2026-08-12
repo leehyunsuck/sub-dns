@@ -4,7 +4,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatusCode;
@@ -39,12 +38,13 @@ public class PDNSService {
     private final CheckAdminService checkAdminService;
     private final LockService lockService;
     private final PdnsProperties pdnsProperties;
+    private final ExpirationDomainDateService expirationDomainDateService;
 
     private static final String LOCK_KEY_PREFIX = "pdns:";
 
     private RestClient restClient;
     @Getter
-    private Set<PDNSDto.ZoneName> cachedZoneNames = Set.of();
+    private volatile Set<PDNSDto.ZoneName> cachedZoneNames = Set.of();
 
     /**
      * 초기화 메서드
@@ -123,11 +123,22 @@ public class PDNSService {
         String lockValue = lockService.lock(lockKey);
 
         try {
-            LocalDate expiryDate = isAdmin
-                    ? LocalDate.now().plusYears(999)
-                    : isNewDomain
-                    ? null // 신규 등록이면 값 지정 X -> HaveSubDoamin prePersist() 에서 설정함
-                    :haveSubDomainService.getExpiryDate(member, fullDomain);
+            // 날짜 설정
+            LocalDate expiryDate;
+            // 신규 도메인은 6개월 or zone 최대 유효 날짜
+            if (isNewDomain) {
+                if (isAdmin) {
+                    expiryDate = LocalDate.now().plusYears(999);
+                } else {
+                    LocalDate maximumDomainDate = expirationDomainDateService.getDomainExpiryDate(zone),
+                              plus6Month = LocalDate.now().plusMonths(6);
+
+                    expiryDate = plus6Month.isBefore(maximumDomainDate) ? plus6Month : maximumDomainDate;
+                }
+            } else {
+                // 신규 도메인은 아니고 타입만 추가
+                expiryDate = haveSubDomainService.getExpiryDate(member, fullDomain);
+            }
 
             // CNAME 레코드는 단독으로만 존재 가능 -> 기존 도메인 지우기
             if (coexistCNAMEAndOtherType) {
@@ -136,7 +147,7 @@ public class PDNSService {
 
             // Entity 등록 or 상태 수정
             // 동일 타입 업데이트 아니면 다 새로 생성임
-            HaveSubDomain haveSubDomain = null;
+            HaveSubDomain haveSubDomain;
             if (isContentUpdate) {
                 haveSubDomain = haveSubDomainService.getHaveSubDomainByDetailInfo(member, fullDomain, type);
                 haveSubDomainService.updateContentAndSetPending(haveSubDomain, content);
@@ -190,7 +201,7 @@ public class PDNSService {
             List<HaveSubDomain> canProcessHaveSubDomains = new ArrayList<>();
             for (HaveSubDomain haveSubDomain : haveSubDomains) {
                 String key = LOCK_KEY_PREFIX + haveSubDomain.getFullDomain();
-                String value = null;
+                String value;
                 try {
                     value = lockService.lock(key);
                 } catch (ConcurrencyFailureException e) {
@@ -459,16 +470,17 @@ public class PDNSService {
         Set<PDNSDto.ZoneName> zones = restClient.get()
                 .uri("zones")
                 .retrieve()
-                .body(new ParameterizedTypeReference<Set<PDNSDto.ZoneName>>() {});
+                .body(new ParameterizedTypeReference<>() {});
 
         // PowerDNS API에서 Zone 정보 가져오면 마지막 문자가 . 으로 끝남
-        for (PDNSDto.ZoneName zone : zones) {
-            String name = zone.getName();
-            if (name.endsWith(".")) {
-                zone.setName(name.substring(0, name.length() - 1));
+        if (zones != null) {
+            for (PDNSDto.ZoneName zone : zones) {
+                String name = zone.getName();
+                if (name.endsWith(".")) {
+                    zone.setName(name.substring(0, name.length() - 1));
+                }
             }
         }
-
         return zones;
     }
 

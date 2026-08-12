@@ -11,6 +11,7 @@ import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.dto.SubDomainDto;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
+import top.nulldns.subdns.service.facade.ExpirationDomainDateService;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -22,9 +23,10 @@ import java.util.List;
 @Slf4j
 public class HaveSubDomainService {
     private final HaveSubDomainRepository haveSubDomainRepository;
+    private final ExpirationDomainDateService expirationDomainDateService;
 
-    public void renewDate(Member member, String fullDomain) {
-        List<HaveSubDomain> subDomains = haveSubDomainRepository.findByMemberAndFullDomain(member, fullDomain);
+    public void renewDate(Member member, String subDomain, String zone) {
+        List<HaveSubDomain> subDomains = haveSubDomainRepository.findByMemberAndFullDomain(member, subDomain + "." + zone);
         if (subDomains.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "도메인 소유자가 아닙니다.");
         }
@@ -34,9 +36,11 @@ public class HaveSubDomainService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "도메인을 갱신할 수 없습니다. 갱신 가능 날짜가 아직 도래하지 않았습니다.");
         }
 
-        for (HaveSubDomain subDomain : subDomains) {
-            subDomain.renewDate();
+        LocalDate maximumExpiryDate = expirationDomainDateService.getDomainExpiryDate(zone);
+        for (HaveSubDomain s : subDomains) {
+            s.renewDate(maximumExpiryDate);
         }
+        haveSubDomainRepository.saveAll(subDomains);
     }
 
     public void updateContentAndSetPending(HaveSubDomain haveSubDomain, String content) {

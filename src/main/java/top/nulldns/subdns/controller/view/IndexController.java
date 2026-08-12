@@ -28,8 +28,4 @@ public class IndexController {
         return "privacy";
     }
 
-    @GetMapping("/domain-info")
-    public String domainInfo() {
-        return "domainInfo";
-    }
 }

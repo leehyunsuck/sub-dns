@@ -18,7 +18,7 @@ import java.util.Set;
 @Slf4j
 public class CheckAdminService {
     private final AdminRepository adminRepository;
-    private Set<Long> adminSet;
+    private volatile Set<Long> adminSet;
 
     @PostConstruct
     private void init() {

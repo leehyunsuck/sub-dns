@@ -40,10 +40,9 @@ public class PDNSRestController {
         }
 
         Long memberId = (Long) session.getAttribute("memberId");
-        String fullDomain = subDomain + "." + zone;
 
         // throw new ResponseStatusException(STATUS, "MSG") 로 예외 넘어옴 - 로그 남길필요 없다고 판단하여 CATCH 안함
-        haveSubDomainService.renewDate(memberService.getMemberById(memberId), fullDomain);
+        haveSubDomainService.renewDate(memberService.getMemberById(memberId), subDomain, zone);
 
         return ResponseEntity.ok().build();
     }

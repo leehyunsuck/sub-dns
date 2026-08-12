@@ -44,13 +44,6 @@ public class HaveSubDomain {
     @Column(name = "domain_status", length = 15)
     private Status domainStatus;
 
-    @PrePersist
-    public void prePersist() {
-        if (this.expiryDate == null) {
-            this.expiryDate = LocalDate.now().plusMonths(6);
-        }
-    }
-
     public Long getMemberId() {
         return this.member.getId();
     }
@@ -77,10 +70,11 @@ public class HaveSubDomain {
         return LocalDate.now().isAfter(oneMonthBeforeExpiry);
     }
 
-    public void renewDate() {
+    public void renewDate(LocalDate maximumExpiryDate) {
         if (!isRenewable()) {
             return;
         }
-        this.expiryDate = this.expiryDate.plusMonths(6);
+        LocalDate plus6Month = this.expiryDate.plusMonths(6);
+        this.expiryDate = plus6Month.isBefore(maximumExpiryDate) ? plus6Month : maximumExpiryDate;
     }
 }

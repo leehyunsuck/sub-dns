@@ -106,8 +106,8 @@ public class PDNSService {
         if (!isNewDomain && !haveSubDomainService.isOwnerOfDomain(member, fullDomain)) {
             throw new SecurityException("보유 도메인이 아님에도 수정하려는 절차가 진행중임");
         }
-        // 최대 레코드수 체크
-        if (!isAdmin && !isContentUpdate && !isNotOverMaxRecords(member)) {
+        // 최대 레코드수 체크 (새로운 도메인을 추가할 때만 체크)
+        if (!isAdmin && isNewDomain && !isNotOverMaxRecords(member)) {
             throw new IllegalStateException("최대 레코드 수 초과");
         }
         // 파라미터 체크 (
@@ -155,12 +155,13 @@ public class PDNSService {
                 haveSubDomain = haveSubDomainService.newHaveSubDomain(member, fullDomain, type, content, expiryDate); // 여기서 ADD_PENDING 으로 설정함
             }
 
-            // PDNS 반영 - 여기선 1개만 수정하니까 반환값 사용 안함
-            // 익셉션 터지면 여기서 안잡고 추 후 스케줄링에서 처리함
-            this.actionSubRecordsInPDNS(List.of(haveSubDomain), Action.REPLACE);
+            // PDNS 반영
+            List<HaveSubDomain> successSubDomains = this.actionSubRecordsInPDNS(List.of(haveSubDomain), Action.REPLACE);
 
             // db 상태 수정
-            haveSubDomainService.setStatusActivity(haveSubDomain);
+            if (!successSubDomains.isEmpty()) {
+                haveSubDomainService.setStatusActivity(haveSubDomain);
+            }
         } finally {
             lockService.unlock(lockKey, lockValue);
         }
@@ -218,8 +219,10 @@ public class PDNSService {
 
             if (action.equals(Action.REPLACE)) {
                 haveSubDomainService.setStatusActivity(successSubDomains);
-            } else {
+            } else if (action.equals(Action.DELETE)) {
                 haveSubDomainService.deleteSubDomains(successSubDomains);
+            } else {
+                // 없으나 추 후 추가될 수 있으므로 일단 else if 로 작성했음
             }
         } finally {
             for (Map.Entry<String, String> entry : keyAndValues.entrySet()) {
@@ -260,7 +263,7 @@ public class PDNSService {
         );
 
         restClient.post()
-                .uri("/servers/localhost/zones")
+                .uri("zones")
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve()
@@ -279,7 +282,7 @@ public class PDNSService {
      */
     public void deleteZone(String zoneName) {
         restClient.delete()
-                .uri("/servers/localhost/zones/{zone}.", zoneName)
+                .uri("zones/{zone}.", zoneName)
                 .header("X-API-Key", pdnsProperties.getApiKey())
                 .retrieve()
                 .toBodilessEntity();
@@ -344,7 +347,7 @@ public class PDNSService {
      * @param zone
      */
     private void patchModifyRecord(List<PDNSDto.Rrset> rrsets, String zone) {
-        restClient.patch().uri("/zones/" + zone)
+        restClient.patch().uri("/zones/{zone}.", zone)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(Map.of("rrsets", rrsets))
                 .retrieve()

@@ -53,7 +53,7 @@ public class SubDNSScheduler {
         String lockKey = LOCK_KEY_PREFIX + "pending";
         String lockValue = null;
         try {
-            lockValue = lockService.lock(lockKey, Duration.ofDays(3600));
+            lockValue = lockService.lock(lockKey, Duration.ofSeconds(3600));
         } catch (ConcurrencyFailureException e) {   // 다른 VM or 이전 작업 점유중
             return;
         }

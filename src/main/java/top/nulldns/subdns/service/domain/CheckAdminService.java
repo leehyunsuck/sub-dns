@@ -3,8 +3,12 @@ package top.nulldns.subdns.service.domain;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import top.nulldns.subdns.config.finalconfig.Event;
+import top.nulldns.subdns.config.finalconfig.PubSubChannel;
 import top.nulldns.subdns.dao.Admin;
 import top.nulldns.subdns.repository.AdminRepository;
 
@@ -20,26 +24,27 @@ public class CheckAdminService {
     private final AdminRepository adminRepository;
     private volatile Set<Long> adminSet;
 
+    private final StringRedisTemplate stringRedisTemplate;
+
     @PostConstruct
     private void init() {
         adminSet = new HashSet<>();
-        if (!refreshAdminSet()) {
-            log.error("관리자 목록 초기화에 실패하였습니다.");
-        }
+        refreshAdmins(false);
     }
 
     @Scheduled(cron = "0 0 0 * * ?")
-    public void sheduledRefresh() {
-        if (!refreshAdminSet()) {
-            log.error("관리자 목록 갱신에 실패하였습니다.");
-        }
+    public void scheduledRefresh() {
+        refreshAdmins(false);
     }
 
     public boolean isAdmin(Long memberId) {
         return memberId != null && adminSet.contains(memberId);
     }
 
-    private boolean refreshAdminSet() {
+    public void refreshAdmins(boolean isSendEvent) {
+        if (isSendEvent) {
+            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_ADMINS.name());
+        }
         try {
             List<Admin> admins = adminRepository.findAll();
 
@@ -48,11 +53,8 @@ public class CheckAdminService {
                 newAdminSet.add(admin.getMember().getId());
             }
             adminSet = Set.copyOf(newAdminSet);
-
-            return true;
         } catch (Exception e) {
-            log.error("관리자 목록 갱신 중 에러 발생", e);
-            return false;
+            log.error("관리자 목록 갱신 중 에러 발생: {}", e.toString());
         }
     }
 }

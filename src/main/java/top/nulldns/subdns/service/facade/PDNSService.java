@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -13,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import top.nulldns.subdns.config.PdnsProperties;
 import top.nulldns.subdns.config.finalconfig.Action;
+import top.nulldns.subdns.config.finalconfig.Event;
+import top.nulldns.subdns.config.finalconfig.PubSubChannel;
 import top.nulldns.subdns.config.finalconfig.Status;
 import top.nulldns.subdns.dto.PDNSDto;
 import top.nulldns.subdns.dao.HaveSubDomain;
@@ -40,6 +43,8 @@ public class PDNSService {
     private final PdnsProperties pdnsProperties;
     private final ExpirationDomainDateService expirationDomainDateService;
 
+    private final StringRedisTemplate stringRedisTemplate;
+
     private static final String LOCK_KEY_PREFIX = "pdns:";
 
     private RestClient restClient;
@@ -57,9 +62,9 @@ public class PDNSService {
                 .build();
 
         try {
-            this.cachedZoneNames = this.getZoneNamesSet();
+            this.refreshZones(false);
         } catch (Exception e) {
-            log.error("초기 Zone Name 목록 갱신 중 에러 발생", e);
+            log.error("초기 Zone Name 목록 갱신 중 에러 발생: {}", e.toString());
             this.cachedZoneNames = new HashSet<>();
             cachedZoneNames.add(PDNSDto.ZoneName.builder().name("nulldns.top").build());
         }
@@ -70,10 +75,18 @@ public class PDNSService {
      */
     @Scheduled(cron = "0 0 0 * * ?")
     private void scheduledRefresh() {
+        this.refreshZones(false);
+    }
+
+    public void refreshZones(boolean isSendEvent) {
+        if (isSendEvent) {
+            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_ZONES.name());
+        }
+
         try {
-            this.cachedZoneNames = this.getZoneNamesSet();
+            this.cachedZoneNames = this.getRefreshZoneNamesSet();
         } catch (Exception e) {
-            log.error("정기 Zone Name 목록 갱신 중 에러 발생", e);
+            log.error("zones 갱신 중 에러 발생: {}", e.toString());
         }
     }
 
@@ -273,7 +286,7 @@ public class PDNSService {
                 .toBodilessEntity();
         
         log.info("존 생성 완료: {}", zoneName);
-        this.cachedZoneNames = this.getZoneNamesSet(); // 캐시 갱신
+        this.refreshZones(true);
     }
 
     /**
@@ -287,6 +300,7 @@ public class PDNSService {
                 .retrieve()
                 .toBodilessEntity();
         log.info("존 삭제 완료: {}", zoneName);
+        this.refreshZones(true);
     }
 
     /**
@@ -332,7 +346,7 @@ public class PDNSService {
             try {
                 patchModifyRecord(zoneRrsetsMap.get(zone), zone);
             } catch (Exception e) {
-                log.error("존 {} 에 대한 레코드 {} 중 {} 작업 실패", zone, zoneRrsetsMap.get(zone).size(), action.name(), e);
+                log.error("존 {} 에 대한 레코드 {} 중 {} 작업 실패: {}", zone, zoneRrsetsMap.get(zone).size(), action.name(), e.toString());
                 continue;
             }
             successSubDomains.addAll(zoneSubDomainsMap.get(zone));
@@ -469,21 +483,24 @@ public class PDNSService {
         return new String[] {subDomain, zone};
     }
 
-    private Set<PDNSDto.ZoneName> getZoneNamesSet() {
+    private Set<PDNSDto.ZoneName> getRefreshZoneNamesSet() {
         Set<PDNSDto.ZoneName> zones = restClient.get()
                 .uri("zones")
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
 
+        if (zones == null || zones.isEmpty()) {
+            throw new RuntimeException("갱신하고자 받은 zones가 비어있습니다");
+        }
+
         // PowerDNS API에서 Zone 정보 가져오면 마지막 문자가 . 으로 끝남
-        if (zones != null) {
-            for (PDNSDto.ZoneName zone : zones) {
-                String name = zone.getName();
-                if (name.endsWith(".")) {
-                    zone.setName(name.substring(0, name.length() - 1));
-                }
+        for (PDNSDto.ZoneName zone : zones) {
+            String name = zone.getName();
+            if (name.endsWith(".")) {
+                zone.setName(name.substring(0, name.length() - 1));
             }
         }
+
         return zones;
     }
 

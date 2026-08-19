@@ -25,7 +25,6 @@ public class SubDNSScheduler {
     private final PDNSService pdnsService;
     private final LockService lockService;
     private final StatusRegistryService statusRegistryService;
-    // SubDnsProperties는 필요시 추가
     
     private static final Status[] STATUSES = { Status.ADD_PENDING, Status.UPDATE_PENDING, Status.DELETE_PENDING };
 
@@ -41,13 +40,13 @@ public class SubDNSScheduler {
         try {
             runDeleteExpiryDomain();
         } catch (Exception e) {
-            log.error("만료 도메인 제거 에러" + e);
+            log.error("만료 도메인 제거 에러: {}", e.toString());
         } finally {
             lockService.unlock(lockKey, value);
         }
     }
 
-    @Scheduled(cron = "0 0/1 * * * *")
+    @Scheduled(cron = "*/30 * * * * *")
     public void pendingDomain() {
         // LOCK
         String lockKey = LOCK_KEY_PREFIX + "pending";
@@ -62,15 +61,11 @@ public class SubDNSScheduler {
         statusRegistryService.newOrKeepStatus(STATUS_IDX, "0");
         String value = statusRegistryService.getStatus(STATUS_IDX);
 
-        int idx = (int) Math.floor(Math.random() * STATUSES.length);
+        int idx = 0;
         try {
-            idx = Integer.parseInt(value);
+            if (value != null) idx = Integer.parseInt(value);
         } catch (NumberFormatException ignored) {
-        }
-
-        // 이건 버그임
-        if (idx >= STATUSES.length) {
-            idx = 0;
+            idx = (int) (Math.random() * STATUSES.length);
         }
 
         Status status = STATUSES[idx];

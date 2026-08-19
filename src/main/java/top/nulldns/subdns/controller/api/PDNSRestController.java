@@ -61,7 +61,7 @@ public class PDNSRestController {
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception e) {
-            log.error("서브도메인 삭제 요청 중 에러 발생", e);
+            log.error("서브도메인 삭제 요청 중 에러 발생: {}", e.toString());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 

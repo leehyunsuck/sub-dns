@@ -5,12 +5,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dao.Member;
+import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.service.domain.HaveSubDomainService;
 import top.nulldns.subdns.service.domain.MemberService;
 
+import java.time.LocalDate;
 import java.util.*;
 
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import top.nulldns.subdns.dto.AdminDomainDto;
@@ -23,7 +24,7 @@ public class AdminService {
     private final HaveSubDomainService haveSubDomainService;
     private final MemberService memberService;
     private final PDNSService pdnsService;
-    private final top.nulldns.subdns.repository.HaveSubDomainRepository haveSubDomainRepository;
+    private final HaveSubDomainRepository haveSubDomainRepository;
 
     // --- 통계 ---
     public Map<String, Object> getStatistics() {
@@ -73,7 +74,6 @@ public class AdminService {
     }
 
     // --- 도메인 관리 ---
-    @Transactional(readOnly = true)
     public Page<AdminDomainDto> searchDomainsPaged(String query, Pageable pageable) {
         Page<HaveSubDomain> domains;
         if (query == null || query.isBlank()) {
@@ -94,7 +94,6 @@ public class AdminService {
         ));
     }
 
-    @Transactional(readOnly = true)
     public List<AdminDomainDto> getDomainsByMember(Long memberId) {
         return haveSubDomainRepository.findByMemberId(memberId).stream()
                 .map(d -> new AdminDomainDto(
@@ -110,8 +109,7 @@ public class AdminService {
                 .toList();
     }
 
-    @Transactional
-    public void updateExpiryDate(Long domainId, java.time.LocalDate newExpiryDate) {
+    public void updateExpiryDate(Long domainId, LocalDate newExpiryDate) {
         HaveSubDomain domain = haveSubDomainRepository.findById(domainId)
                 .orElseThrow(() -> new NoSuchElementException("존재하지 않는 도메인입니다."));
         
@@ -126,7 +124,6 @@ public class AdminService {
                 .build());
     }
 
-    @Transactional(readOnly = true)
     public List<AdminDomainDto> searchDomains(String query) {
         List<HaveSubDomain> domains;
         if (query == null || query.isBlank()) {

@@ -33,7 +33,7 @@ public class AuthRestController {
         try {
             authService.deleteUserAndData(memberId);
         } catch (Exception e) {
-            log.error("회원 탈퇴 중 오류 발생", e);
+            log.error("회원 탈퇴 중 오류 발생: {}", e.toString());
             log.error("탈퇴 시도한 회원 ID: {}", memberId);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }

@@ -99,6 +99,8 @@ public class AdminRestController {
     @PostMapping("/deleteZone/{zone}/{code}")
     public ResponseEntity<Void> deleteZone(@PathVariable String zone, @PathVariable String code) {
         // 간단한 검증 (실제론 code 검증 로직 추가 필요)
+        // admin 으로 보내는 mail
+
         if (!"DELETE".equals(code)) return ResponseEntity.badRequest().build();
 
         try {
@@ -106,7 +108,7 @@ public class AdminRestController {
                 return ResponseEntity.ok().build();
             }
         } catch (Exception e) {
-            log.error("Error deleting zone and subdomains for zone {}: {}", zone, e.getMessage());
+            log.error("{} ZONE 삭제 도중 에러 발생: {}", zone, e.toString());
         }
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

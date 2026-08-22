@@ -19,7 +19,7 @@
             <p class="text-bold-mt">회원가입 하시겠습니까?</p>
         </div>
 
-        <form action="/signup" method="post" id="signupForm">
+        <form th:action="@{/signup}" method="post" id="signupForm">
             <div class="checkbox-group checkbox-group-wrapper">
                 <input type="checkbox" id="agree" name="agree">
                 <label for="agree">

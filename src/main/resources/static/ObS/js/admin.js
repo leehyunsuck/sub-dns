@@ -41,6 +41,19 @@ function closeModal() {
 
 async function apiFetch(url, options = {}) {
     showLoading(true);
+    
+    // CSRF 토큰 쿠키에서 읽어오기
+    const csrfToken = document.cookie.split('; ')
+        .find(row => row.startsWith('XSRF-TOKEN='))
+        ?.split('=')[1];
+
+    if (csrfToken && (!options.method || options.method !== 'GET')) {
+        options.headers = {
+            ...options.headers,
+            'X-XSRF-TOKEN': csrfToken
+        };
+    }
+
     try {
         const response = await fetch(url, options);
         if (!response.ok) {

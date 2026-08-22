@@ -2,9 +2,14 @@ package top.nulldns.subdns.service.facade;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dao.Member;
+import top.nulldns.subdns.dto.AdminDomainDto;
+import top.nulldns.subdns.dto.AdminMemberDto;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.service.domain.HaveSubDomainService;
 import top.nulldns.subdns.service.domain.MemberService;
@@ -12,14 +17,10 @@ import top.nulldns.subdns.service.domain.MemberService;
 import java.time.LocalDate;
 import java.util.*;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import top.nulldns.subdns.dto.AdminDomainDto;
-import top.nulldns.subdns.dto.AdminMemberDto;
-
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class AdminService {
     private final HaveSubDomainService haveSubDomainService;
     private final MemberService memberService;
@@ -65,10 +66,12 @@ public class AdminService {
                 .toList();
     }
 
+    @Transactional
     public void setMemberBanned(Long memberId, boolean banned) {
         memberService.setBanned(memberId, banned);
     }
 
+    @Transactional
     public void updateMemberMaxRecords(Long memberId, int maxRecords) {
         memberService.updateMaxRecords(memberId, maxRecords);
     }
@@ -109,6 +112,7 @@ public class AdminService {
                 .toList();
     }
 
+    @Transactional
     public void updateExpiryDate(Long domainId, LocalDate newExpiryDate) {
         HaveSubDomain domain = haveSubDomainRepository.findById(domainId)
                 .orElseThrow(() -> new NoSuchElementException("존재하지 않는 도메인입니다."));
@@ -146,11 +150,13 @@ public class AdminService {
                 .toList();
     }
 
+    @Transactional
     public void transferDomainOwnership(String fullDomain, Long newMemberId) {
         Member newOwner = memberService.getMemberById(newMemberId);
         haveSubDomainService.transferOwnership(fullDomain, newOwner);
     }
 
+    @Transactional
     public void deleteDomainForce(String fullDomain) {
         List<HaveSubDomain> subDomains = haveSubDomainService.getSubDomainDTOs(fullDomain).stream()
                 .map(dto -> haveSubDomainService.getHaveSubDomainByDetailInfo(null, fullDomain, dto.type())) // member 무시하고 찾기 위해 repository 수정 필요할 수도 있음

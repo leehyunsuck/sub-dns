@@ -4,13 +4,12 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import top.nulldns.subdns.SubDNSScheduler;
 import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.repository.HaveSubDomainRepository;
-import top.nulldns.subdns.service.domain.HaveSubDomainService;
 import top.nulldns.subdns.service.facade.AuthService;
 import top.nulldns.subdns.service.facade.PDNSService;
 import top.nulldns.subdns.service.domain.CheckAdminService;
@@ -116,7 +115,7 @@ public class TestController {
 
     @GetMapping("/test/execute")
     @ResponseBody
-    public String executeTests(HttpSession session, @org.springframework.web.bind.annotation.RequestParam(required = false) List<Integer> steps) {
+    public String executeTests(HttpSession session, @RequestParam(required = false) List<Integer> steps) {
         if (session.getAttribute("memberId") == null || session.getAttribute("id") == null) {
             return "<script>alert('로그인이 필요합니다.'); loadPage('auth');</script>";
         }

@@ -87,6 +87,9 @@ public class PDNSRecordValidator {
 
 
     public static boolean validate(String type, String content, String zone, boolean isAdmin) {
+        if (type == null) return false;
+        type = type.toUpperCase();
+
         if (!isValidType(type)) return false;
 
         switch (type) {

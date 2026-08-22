@@ -26,7 +26,7 @@ public interface HaveSubDomainRepository extends JpaRepository<HaveSubDomain, Lo
     """)
     List<HaveSubDomain> findExpired(@Param("now") LocalDate now, @Param("status") Status status , Pageable pageable);
 
-    List<HaveSubDomain> findByDomainStatusAndExpiryDateAfter(Status status, LocalDate date);
+    List<HaveSubDomain> findByDomainStatusAndExpiryDateGreaterThanEqual(Status status, LocalDate date);
 
     List<HaveSubDomain> findByMemberAndFullDomain(Member member, String fullDomain);
 

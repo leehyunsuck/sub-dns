@@ -111,7 +111,7 @@ public class HaveSubDomainService {
     }
 
     public List<HaveSubDomain> getAvailableSubDomains(Status status) {
-        return haveSubDomainRepository.findByDomainStatusAndExpiryDateAfter(status, LocalDate.now());
+        return haveSubDomainRepository.findByDomainStatusAndExpiryDateGreaterThanEqual(status, LocalDate.now());
     }
 
     public List<HaveSubDomain> getMemberSubDomains(Member member) {

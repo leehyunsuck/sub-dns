@@ -4,13 +4,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
 import top.nulldns.subdns.config.finalconfig.Status;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dao.Member;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 public interface HaveSubDomainRepository extends JpaRepository<HaveSubDomain, Long> {
     List<HaveSubDomain> findByMember(Member member);
@@ -50,9 +50,9 @@ public interface HaveSubDomainRepository extends JpaRepository<HaveSubDomain, Lo
 
     List<HaveSubDomain> findByFullDomainContaining(String fullDomain);
 
-    org.springframework.data.domain.Page<HaveSubDomain> findAll(org.springframework.data.domain.Pageable pageable);
+    Page<HaveSubDomain> findAll(Pageable pageable);
 
-    org.springframework.data.domain.Page<HaveSubDomain> findByFullDomainContaining(String fullDomain, org.springframework.data.domain.Pageable pageable);
+    Page<HaveSubDomain> findByFullDomainContaining(String fullDomain, Pageable pageable);
 
     @Query("SELECT h FROM HaveSubDomain h WHERE h.member.id = :memberId")
     List<HaveSubDomain> findByMemberId(@Param("memberId") Long memberId);

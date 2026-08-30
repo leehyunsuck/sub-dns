@@ -10,6 +10,7 @@ import top.nulldns.subdns.config.finalconfig.Event;
 import top.nulldns.subdns.config.finalconfig.PubSubChannel;
 import top.nulldns.subdns.dao.Admin;
 import top.nulldns.subdns.repository.AdminRepository;
+import top.nulldns.subdns.service.infra.InstanceIdProvider;
 
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +25,7 @@ public class CheckAdminService {
     private volatile Set<Long> adminSet;
 
     private final StringRedisTemplate stringRedisTemplate;
+    private final InstanceIdProvider instanceIdProvider;
 
     @PostConstruct
     private void init() {
@@ -42,7 +44,7 @@ public class CheckAdminService {
 
     public void refreshAdmins(boolean isSendEvent) {
         if (isSendEvent) {
-            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_ADMINS.name());
+            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_ADMINS.name() + ":" + instanceIdProvider.getInstanceId());
         }
         try {
             List<Admin> admins = adminRepository.findAll();

@@ -13,6 +13,7 @@ import org.springframework.web.client.RestTemplate;
 import top.nulldns.subdns.config.StorageProperties;
 import top.nulldns.subdns.config.finalconfig.Event;
 import top.nulldns.subdns.config.finalconfig.PubSubChannel;
+import top.nulldns.subdns.service.infra.InstanceIdProvider;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -25,6 +26,7 @@ import java.util.Objects;
 public class ExpirationDomainDateService {
     private final StorageProperties storageProperties;
     private final StringRedisTemplate stringRedisTemplate;
+    private final InstanceIdProvider instanceIdProvider;
 
     private volatile HashMap<String, LocalDate> expiryDatesMap = new HashMap<>();
 
@@ -47,7 +49,7 @@ public class ExpirationDomainDateService {
 
     public void refreshMaxDomainDates(boolean isSendEvent) {
         if (isSendEvent) {
-            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_DOMAIN_MAX_DATES.name());
+            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_DOMAIN_MAX_DATES.name() + ":" + instanceIdProvider.getInstanceId());
         }
 
         try {

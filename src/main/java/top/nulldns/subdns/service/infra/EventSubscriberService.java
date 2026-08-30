@@ -15,13 +15,24 @@ public class EventSubscriberService {
     private final CheckAdminService checkAdminService;
     private final ExpirationDomainDateService expirationDomainDateService;
     private final PDNSService pdnsService;
+    private final InstanceIdProvider instanceIdProvider;
 
     public void onMessage(String message) {
-        if (message.equals(Event.REFRESH_ADMINS.name())) {
+        String[] parts = message.split(":", 2);
+        String eventType = parts[0];
+        
+        if (parts.length == 2) {
+            String senderId = parts[1];
+            if (instanceIdProvider.getInstanceId().equals(senderId)) {
+                return;
+            }
+        }
+
+        if (eventType.equals(Event.REFRESH_ADMINS.name())) {
             checkAdminService.refreshAdmins(false);
-        } else if (message.equals(Event.REFRESH_ZONES.name())) {
+        } else if (eventType.equals(Event.REFRESH_ZONES.name())) {
             pdnsService.refreshZones(false);
-        } else if (message.equals(Event.REFRESH_DOMAIN_MAX_DATES.name())) {
+        } else if (eventType.equals(Event.REFRESH_DOMAIN_MAX_DATES.name())) {
             expirationDomainDateService.refreshMaxDomainDates(false);
         } else {
             log.error("알 수 없는 이벤트 발생: {}", message);

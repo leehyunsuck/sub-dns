@@ -12,7 +12,6 @@ import top.nulldns.subdns.service.facade.PDNSService;
 import top.nulldns.subdns.service.infra.LockService;
 import top.nulldns.subdns.service.infra.StatusRegistryService;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -52,7 +51,7 @@ public class SubDNSScheduler {
         String lockKey = LOCK_KEY_PREFIX + "pending";
         String lockValue = null;
         try {
-            lockValue = lockService.lock(lockKey, Duration.ofSeconds(3600));
+            lockValue = lockService.lock(lockKey);
         } catch (ConcurrencyFailureException e) {   // 다른 VM or 이전 작업 점유중
             return;
         }
@@ -83,7 +82,10 @@ public class SubDNSScheduler {
             } else {
                 statusRegistryService.increment(STATUS_IDX);
             }
-            lockService.unlock(lockKey, lockValue);
+
+            if (lockValue != null) {
+                lockService.unlock(lockKey, lockValue);
+            }
         }
     }
 

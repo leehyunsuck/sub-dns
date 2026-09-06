@@ -237,6 +237,12 @@ public class PDNSService {
             List<HaveSubDomain> canProcessHaveSubDomains = new ArrayList<>();
             for (HaveSubDomain haveSubDomain : haveSubDomains) {
                 String key = LOCK_KEY_PREFIX + haveSubDomain.getFullDomain();
+                if (keyAndValues.containsKey(key)) {
+                    // 이미 이번 배치에서 해당 도메인에 대한 락을 획득했으므로 그대로 통과
+                    canProcessHaveSubDomains.add(haveSubDomain);
+                    continue;
+                }
+                
                 String value;
                 try {
                     value = lockService.lock(key);

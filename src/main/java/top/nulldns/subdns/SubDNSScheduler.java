@@ -34,14 +34,22 @@ public class SubDNSScheduler {
     public void deleteExpiryDomain() {
         log.info("Processing expired domain delete");
         String lockKey = LOCK_KEY_PREFIX + "expiry";
-        String value = lockService.lock(lockKey);
+        String value = null;
+        try {
+            value = lockService.lock(lockKey);
+        } catch (ConcurrencyFailureException e) {
+            // 다른 서버가 이미 처리 중이므로 스킵
+            return;
+        }
 
         try {
             runDeleteExpiryDomain();
         } catch (Exception e) {
             log.error("만료 도메인 제거 에러: {}", e.toString());
         } finally {
-            lockService.unlock(lockKey, value);
+            if (value != null) {
+                lockService.unlock(lockKey, value);
+            }
         }
     }
 

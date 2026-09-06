@@ -94,18 +94,27 @@ public class SubDNSScheduler {
 
         LocalDate localDate = LocalDate.now();
         int deleted = 0;
+        java.util.Set<Long> attemptedIds = new java.util.HashSet<>();
 
         while(true) {
             List<HaveSubDomain> deleteDomains = haveSubDomainService.getExpiredSubDomains(localDate, 500);
+            List<HaveSubDomain> toProcess = new java.util.ArrayList<>();
+            
+            for (HaveSubDomain domain : deleteDomains) {
+                if (!attemptedIds.contains(domain.getId())) {
+                    toProcess.add(domain);
+                    attemptedIds.add(domain.getId());
+                }
+            }
 
-            if (deleteDomains.isEmpty()) {
+            if (toProcess.isEmpty()) {
                 break;
             }
 
             List<HaveSubDomain> processable = new java.util.ArrayList<>();
             java.util.Map<String, String> locks = new java.util.HashMap<>();
 
-            for (HaveSubDomain domain : deleteDomains) {
+            for (HaveSubDomain domain : toProcess) {
                 String lockKey = "pdns:" + domain.getFullDomain();
                 if (locks.containsKey(lockKey)) {
                     processable.add(domain);
@@ -125,8 +134,8 @@ public class SubDNSScheduler {
             }
 
             try {
-                pdnsService.deleteSubRecords(processable);
-                deleted += processable.size();
+                List<HaveSubDomain> successList = pdnsService.deleteSubRecords(processable);
+                deleted += successList.size();
             } finally {
                 for (java.util.Map.Entry<String, String> entry : locks.entrySet()) {
                     lockService.unlock(entry.getKey(), entry.getValue());

@@ -261,10 +261,11 @@ public class PDNSService {
      * 레코드 삭제 (내부용)
      * @param haveSubDomains
      */
-    public void deleteSubRecords(List<HaveSubDomain> haveSubDomains) {
+    public List<HaveSubDomain> deleteSubRecords(List<HaveSubDomain> haveSubDomains) {
         haveSubDomainService.setDeletePending(haveSubDomains);
         List<HaveSubDomain> deleteSuccess = this.actionSubRecordsInPDNS(haveSubDomains, Action.DELETE);
         haveSubDomainService.deleteSubDomains(deleteSuccess);
+        return deleteSuccess;
     }
 
     public void deleteSubRecordsByMemberId(Long memberId) {

@@ -52,10 +52,19 @@ public class ExpirationDomainDateService {
             stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_DOMAIN_MAX_DATES.name() + ":" + instanceIdProvider.getInstanceId());
         }
 
-        try {
-            this.expiryDatesMap = getRefreshExpiryDatesMap();
-        } catch (Exception e) {
-            log.error("도메인 최대 만료일 갱신 중 에러 발생: {}", e.toString());
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                this.expiryDatesMap = getRefreshExpiryDatesMap();
+                return;
+            } catch (Exception e) {
+                if (i == maxRetries - 1) {
+                    log.error("도메인 최대 만료일 갱신 최종({}회) 실패: {}", maxRetries, e.toString());
+                } else {
+                    log.warn("도메인 최대 만료일 갱신 중 에러 발생 (재시도 {}/{}): {}", i + 1, maxRetries, e.toString());
+                    try { Thread.sleep(2000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
         }
     }
 

@@ -86,10 +86,19 @@ public class PDNSService {
             stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_ZONES.name() + ":" + instanceIdProvider.getInstanceId());
         }
 
-        try {
-            this.cachedZoneNames = this.getRefreshZoneNamesSet();
-        } catch (Exception e) {
-            log.error("zones 갱신 중 에러 발생: {}", e.toString());
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                this.cachedZoneNames = this.getRefreshZoneNamesSet();
+                return;
+            } catch (Exception e) {
+                if (i == maxRetries - 1) {
+                    log.error("zones 갱신 최종({}회) 실패: {}", maxRetries, e.toString());
+                } else {
+                    log.warn("zones 갱신 중 에러 발생 (재시도 {}/{}): {}", i + 1, maxRetries, e.toString());
+                    try { Thread.sleep(2000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
         }
     }
 

@@ -102,8 +102,36 @@ public class SubDNSScheduler {
                 break;
             }
 
-            pdnsService.deleteSubRecords(deleteDomains);
-            deleted += deleteDomains.size();
+            List<HaveSubDomain> processable = new java.util.ArrayList<>();
+            java.util.Map<String, String> locks = new java.util.HashMap<>();
+
+            for (HaveSubDomain domain : deleteDomains) {
+                String lockKey = "pdns:" + domain.getFullDomain();
+                if (locks.containsKey(lockKey)) {
+                    processable.add(domain);
+                    continue;
+                }
+                try {
+                    String val = lockService.lock(lockKey);
+                    locks.put(lockKey, val);
+                    processable.add(domain);
+                } catch (ConcurrencyFailureException e) {
+                    // 잠겨있다면 이번 스케줄에서는 스킵 (다음에 다시 처리됨)
+                }
+            }
+
+            if (processable.isEmpty()) {
+                break; // 모두 락 획득 실패 시 무한 루프 방지
+            }
+
+            try {
+                pdnsService.deleteSubRecords(processable);
+                deleted += processable.size();
+            } finally {
+                for (java.util.Map.Entry<String, String> entry : locks.entrySet()) {
+                    lockService.unlock(entry.getKey(), entry.getValue());
+                }
+            }
         }
 
         log.info("만료된 서브도메인 삭제 완료: {}개", deleted);

@@ -130,7 +130,7 @@ public class HaveSubDomainService {
     }
 
     public List<HaveSubDomain> getExpiredSubDomains(LocalDate date, int limit) {
-        return haveSubDomainRepository.findExpired(date, Status.ACTIVE, PageRequest.of(0, limit));
+        return haveSubDomainRepository.findExpired(date, PageRequest.of(0, limit));
     }
 
     public List<SubDomainDto> getSubDomainDTOs(String fullDomain) {

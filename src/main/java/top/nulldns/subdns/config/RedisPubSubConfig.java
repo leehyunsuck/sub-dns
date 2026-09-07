@@ -24,7 +24,9 @@ public class RedisPubSubConfig {
 
     @Bean
     public MessageListenerAdapter listenerAdapter(EventSubscriberService subscriber) {
-        return new MessageListenerAdapter(subscriber, "onMessage");
+        MessageListenerAdapter adapter = new MessageListenerAdapter(subscriber, "onMessage");
+        adapter.setSerializer(new org.springframework.data.redis.serializer.StringRedisSerializer());
+        return adapter;
     }
 
 

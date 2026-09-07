@@ -10,6 +10,7 @@ import top.nulldns.subdns.config.finalconfig.Event;
 import top.nulldns.subdns.config.finalconfig.PubSubChannel;
 import top.nulldns.subdns.dao.Admin;
 import top.nulldns.subdns.repository.AdminRepository;
+import top.nulldns.subdns.service.infra.InstanceIdProvider;
 
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +25,7 @@ public class CheckAdminService {
     private volatile Set<Long> adminSet;
 
     private final StringRedisTemplate stringRedisTemplate;
+    private final InstanceIdProvider instanceIdProvider;
 
     @PostConstruct
     private void init() {
@@ -42,18 +44,27 @@ public class CheckAdminService {
 
     public void refreshAdmins(boolean isSendEvent) {
         if (isSendEvent) {
-            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_ADMINS.name());
+            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_ADMINS.name() + ":" + instanceIdProvider.getInstanceId());
         }
-        try {
-            List<Admin> admins = adminRepository.findAll();
-
-            Set<Long> newAdminSet = new HashSet<>();
-            for (Admin admin : admins) {
-                newAdminSet.add(admin.getMember().getId());
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                List<Admin> admins = adminRepository.findAll();
+    
+                Set<Long> newAdminSet = new HashSet<>();
+                for (Admin admin : admins) {
+                    newAdminSet.add(admin.getMember().getId());
+                }
+                adminSet = Set.copyOf(newAdminSet);
+                return;
+            } catch (Exception e) {
+                if (i == maxRetries - 1) {
+                    log.error("관리자 목록 갱신 최종({}회) 실패: {}", maxRetries, e.toString());
+                } else {
+                    log.warn("관리자 목록 갱신 중 에러 발생 (재시도 {}/{}): {}", i + 1, maxRetries, e.toString());
+                    try { Thread.sleep(2000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
             }
-            adminSet = Set.copyOf(newAdminSet);
-        } catch (Exception e) {
-            log.error("관리자 목록 갱신 중 에러 발생: {}", e.toString());
         }
     }
 }

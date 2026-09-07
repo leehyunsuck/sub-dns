@@ -13,6 +13,7 @@ import org.springframework.web.client.RestTemplate;
 import top.nulldns.subdns.config.StorageProperties;
 import top.nulldns.subdns.config.finalconfig.Event;
 import top.nulldns.subdns.config.finalconfig.PubSubChannel;
+import top.nulldns.subdns.service.infra.InstanceIdProvider;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -25,6 +26,7 @@ import java.util.Objects;
 public class ExpirationDomainDateService {
     private final StorageProperties storageProperties;
     private final StringRedisTemplate stringRedisTemplate;
+    private final InstanceIdProvider instanceIdProvider;
 
     private volatile HashMap<String, LocalDate> expiryDatesMap = new HashMap<>();
 
@@ -47,13 +49,22 @@ public class ExpirationDomainDateService {
 
     public void refreshMaxDomainDates(boolean isSendEvent) {
         if (isSendEvent) {
-            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_DOMAIN_MAX_DATES.name());
+            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_DOMAIN_MAX_DATES.name() + ":" + instanceIdProvider.getInstanceId());
         }
 
-        try {
-            this.expiryDatesMap = getRefreshExpiryDatesMap();
-        } catch (Exception e) {
-            log.error("도메인 최대 만료일 갱신 중 에러 발생: {}", e.toString());
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                this.expiryDatesMap = getRefreshExpiryDatesMap();
+                return;
+            } catch (Exception e) {
+                if (i == maxRetries - 1) {
+                    log.error("도메인 최대 만료일 갱신 최종({}회) 실패: {}", maxRetries, e.toString());
+                } else {
+                    log.warn("도메인 최대 만료일 갱신 중 에러 발생 (재시도 {}/{}): {}", i + 1, maxRetries, e.toString());
+                    try { Thread.sleep(2000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
         }
     }
 

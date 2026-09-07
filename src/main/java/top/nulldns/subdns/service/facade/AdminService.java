@@ -26,6 +26,7 @@ public class AdminService {
     private final MemberService memberService;
     private final PDNSService pdnsService;
     private final HaveSubDomainRepository haveSubDomainRepository;
+    private final top.nulldns.subdns.service.infra.LockService lockService;
 
     // --- 통계 ---
     public Map<String, Object> getStatistics() {
@@ -152,18 +153,30 @@ public class AdminService {
 
     @Transactional
     public void transferDomainOwnership(String fullDomain, Long newMemberId) {
-        Member newOwner = memberService.getMemberById(newMemberId);
-        haveSubDomainService.transferOwnership(fullDomain, newOwner);
+        String lockKey = "pdns:" + fullDomain;
+        String lockValue = lockService.lock(lockKey);
+        try {
+            Member newOwner = memberService.getMemberById(newMemberId);
+            haveSubDomainService.transferOwnership(fullDomain, newOwner);
+        } finally {
+            lockService.unlock(lockKey, lockValue);
+        }
     }
 
     @Transactional
     public void deleteDomainForce(String fullDomain) {
-        List<HaveSubDomain> subDomains = haveSubDomainService.getSubDomainDTOs(fullDomain).stream()
-                .map(dto -> haveSubDomainService.getHaveSubDomainByDetailInfo(null, fullDomain, dto.type())) // member 무시하고 찾기 위해 repository 수정 필요할 수도 있음
-                .toList();
-        // 실제로는 findByFullDomain 사용
-        List<HaveSubDomain> targets = haveSubDomainService.getMemberSubDomainsByFullDomain(null, fullDomain);
-        pdnsService.deleteSubRecords(targets);
+        String lockKey = "pdns:" + fullDomain;
+        String lockValue = lockService.lock(lockKey);
+        try {
+            List<HaveSubDomain> subDomains = haveSubDomainService.getSubDomainDTOs(fullDomain).stream()
+                    .map(dto -> haveSubDomainService.getHaveSubDomainByDetailInfo(null, fullDomain, dto.type())) // member 무시하고 찾기 위해 repository 수정 필요할 수도 있음
+                    .toList();
+            // 실제로는 findByFullDomain 사용
+            List<HaveSubDomain> targets = haveSubDomainService.getMemberSubDomainsByFullDomain(null, fullDomain);
+            pdnsService.deleteSubRecords(targets);
+        } finally {
+            lockService.unlock(lockKey, lockValue);
+        }
     }
 
     // --- 존 관리 ---

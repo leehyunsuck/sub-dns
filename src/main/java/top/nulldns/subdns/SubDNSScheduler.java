@@ -12,7 +12,6 @@ import top.nulldns.subdns.service.facade.PDNSService;
 import top.nulldns.subdns.service.infra.LockService;
 import top.nulldns.subdns.service.infra.StatusRegistryService;
 
-import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -25,7 +24,6 @@ public class SubDNSScheduler {
     private final PDNSService pdnsService;
     private final LockService lockService;
     private final StatusRegistryService statusRegistryService;
-    // SubDnsProperties는 필요시 추가
     
     private static final Status[] STATUSES = { Status.ADD_PENDING, Status.UPDATE_PENDING, Status.DELETE_PENDING };
 
@@ -36,24 +34,32 @@ public class SubDNSScheduler {
     public void deleteExpiryDomain() {
         log.info("Processing expired domain delete");
         String lockKey = LOCK_KEY_PREFIX + "expiry";
-        String value = lockService.lock(lockKey);
+        String value = null;
+        try {
+            value = lockService.lock(lockKey);
+        } catch (ConcurrencyFailureException e) {
+            // 다른 서버가 이미 처리 중이므로 스킵
+            return;
+        }
 
         try {
             runDeleteExpiryDomain();
         } catch (Exception e) {
-            log.error("만료 도메인 제거 에러" + e);
+            log.error("만료 도메인 제거 에러: {}", e.toString());
         } finally {
-            lockService.unlock(lockKey, value);
+            if (value != null) {
+                lockService.unlock(lockKey, value);
+            }
         }
     }
 
-    @Scheduled(cron = "0 0/1 * * * *")
+    @Scheduled(cron = "*/30 * * * * *")
     public void pendingDomain() {
         // LOCK
         String lockKey = LOCK_KEY_PREFIX + "pending";
         String lockValue = null;
         try {
-            lockValue = lockService.lock(lockKey, Duration.ofSeconds(3600));
+            lockValue = lockService.lock(lockKey);
         } catch (ConcurrencyFailureException e) {   // 다른 VM or 이전 작업 점유중
             return;
         }
@@ -62,15 +68,11 @@ public class SubDNSScheduler {
         statusRegistryService.newOrKeepStatus(STATUS_IDX, "0");
         String value = statusRegistryService.getStatus(STATUS_IDX);
 
-        int idx = (int) Math.floor(Math.random() * STATUSES.length);
+        int idx = 0;
         try {
-            idx = Integer.parseInt(value);
+            if (value != null) idx = Integer.parseInt(value);
         } catch (NumberFormatException ignored) {
-        }
-
-        // 이건 버그임
-        if (idx >= STATUSES.length) {
-            idx = 0;
+            idx = (int) (Math.random() * STATUSES.length);
         }
 
         Status status = STATUSES[idx];
@@ -88,7 +90,10 @@ public class SubDNSScheduler {
             } else {
                 statusRegistryService.increment(STATUS_IDX);
             }
-            lockService.unlock(lockKey, lockValue);
+
+            if (lockValue != null) {
+                lockService.unlock(lockKey, lockValue);
+            }
         }
     }
 
@@ -97,16 +102,53 @@ public class SubDNSScheduler {
 
         LocalDate localDate = LocalDate.now();
         int deleted = 0;
+        java.util.Set<Long> attemptedIds = new java.util.HashSet<>();
 
         while(true) {
             List<HaveSubDomain> deleteDomains = haveSubDomainService.getExpiredSubDomains(localDate, 500);
+            List<HaveSubDomain> toProcess = new java.util.ArrayList<>();
+            
+            for (HaveSubDomain domain : deleteDomains) {
+                if (!attemptedIds.contains(domain.getId())) {
+                    toProcess.add(domain);
+                    attemptedIds.add(domain.getId());
+                }
+            }
 
-            if (deleteDomains.isEmpty()) {
+            if (toProcess.isEmpty()) {
                 break;
             }
 
-            pdnsService.deleteSubRecords(deleteDomains);
-            deleted += deleteDomains.size();
+            List<HaveSubDomain> processable = new java.util.ArrayList<>();
+            java.util.Map<String, String> locks = new java.util.HashMap<>();
+
+            for (HaveSubDomain domain : toProcess) {
+                String lockKey = "pdns:" + domain.getFullDomain();
+                if (locks.containsKey(lockKey)) {
+                    processable.add(domain);
+                    continue;
+                }
+                try {
+                    String val = lockService.lock(lockKey);
+                    locks.put(lockKey, val);
+                    processable.add(domain);
+                } catch (ConcurrencyFailureException e) {
+                    // 잠겨있다면 이번 스케줄에서는 스킵 (다음에 다시 처리됨)
+                }
+            }
+
+            if (processable.isEmpty()) {
+                break; // 모두 락 획득 실패 시 무한 루프 방지
+            }
+
+            try {
+                List<HaveSubDomain> successList = pdnsService.deleteSubRecords(processable);
+                deleted += successList.size();
+            } finally {
+                for (java.util.Map.Entry<String, String> entry : locks.entrySet()) {
+                    lockService.unlock(entry.getKey(), entry.getValue());
+                }
+            }
         }
 
         log.info("만료된 서브도메인 삭제 완료: {}개", deleted);

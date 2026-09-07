@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -13,14 +15,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import top.nulldns.subdns.config.PdnsProperties;
 import top.nulldns.subdns.config.finalconfig.Action;
+import top.nulldns.subdns.config.finalconfig.Event;
+import top.nulldns.subdns.config.finalconfig.PubSubChannel;
 import top.nulldns.subdns.config.finalconfig.Status;
-import top.nulldns.subdns.dto.PDNSDto;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dao.Member;
+import top.nulldns.subdns.dto.PDNSDto;
 import top.nulldns.subdns.dto.SubDomainDto;
 import top.nulldns.subdns.service.domain.CheckAdminService;
 import top.nulldns.subdns.service.domain.HaveSubDomainService;
 import top.nulldns.subdns.service.domain.MemberService;
+import top.nulldns.subdns.service.infra.InstanceIdProvider;
 import top.nulldns.subdns.service.infra.LockService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
 
@@ -40,6 +45,9 @@ public class PDNSService {
     private final PdnsProperties pdnsProperties;
     private final ExpirationDomainDateService expirationDomainDateService;
 
+    private final StringRedisTemplate stringRedisTemplate;
+    private final InstanceIdProvider instanceIdProvider;
+
     private static final String LOCK_KEY_PREFIX = "pdns:";
 
     private RestClient restClient;
@@ -57,9 +65,9 @@ public class PDNSService {
                 .build();
 
         try {
-            this.cachedZoneNames = this.getZoneNamesSet();
+            this.refreshZones(false);
         } catch (Exception e) {
-            log.error("초기 Zone Name 목록 갱신 중 에러 발생", e);
+            log.error("초기 Zone Name 목록 갱신 중 에러 발생: {}", e.toString());
             this.cachedZoneNames = new HashSet<>();
             cachedZoneNames.add(PDNSDto.ZoneName.builder().name("nulldns.top").build());
         }
@@ -70,10 +78,27 @@ public class PDNSService {
      */
     @Scheduled(cron = "0 0 0 * * ?")
     private void scheduledRefresh() {
-        try {
-            this.cachedZoneNames = this.getZoneNamesSet();
-        } catch (Exception e) {
-            log.error("정기 Zone Name 목록 갱신 중 에러 발생", e);
+        this.refreshZones(false);
+    }
+
+    public void refreshZones(boolean isSendEvent) {
+        if (isSendEvent) {
+            stringRedisTemplate.convertAndSend(PubSubChannel.REFRESH.name(), Event.REFRESH_ZONES.name() + ":" + instanceIdProvider.getInstanceId());
+        }
+
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                this.cachedZoneNames = this.getRefreshZoneNamesSet();
+                return;
+            } catch (Exception e) {
+                if (i == maxRetries - 1) {
+                    log.error("zones 갱신 최종({}회) 실패: {}", maxRetries, e.toString());
+                } else {
+                    log.warn("zones 갱신 중 에러 발생 (재시도 {}/{}): {}", i + 1, maxRetries, e.toString());
+                    try { Thread.sleep(2000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
         }
     }
 
@@ -94,76 +119,86 @@ public class PDNSService {
         Member member = memberService.getMemberById(memberId);
 
         String fullDomain = this.buildFullDomain(subDomain, zone);
-        Set<String> existingRecordTypes = this.getAllRecordTypes(fullDomain);
 
-        boolean isAdmin         = checkAdminService.isAdmin(memberId),
-                isNewDomain     = existingRecordTypes.isEmpty(),
-                isContentUpdate = existingRecordTypes.contains(type),
-                coexistCNAMEAndOtherType    // isTypeCNAME XOR alreadyCNAME
-                                = type.equals("CNAME") ^ existingRecordTypes.contains("CNAME");
-
-        // 도메인 소유주 체크
-        if (!isNewDomain && !haveSubDomainService.isOwnerOfDomain(member, fullDomain)) {
-            throw new SecurityException("보유 도메인이 아님에도 수정하려는 절차가 진행중임");
-        }
-        // 최대 레코드수 체크 (새로운 도메인을 추가할 때만 체크)
-        if (!isAdmin && isNewDomain && !isNotOverMaxRecords(member)) {
-            throw new IllegalStateException("최대 레코드 수 초과");
-        }
-        // 파라미터 체크 (
-        if (!isValidArguments(zone, subDomain, type, content, isAdmin)) {
-            throw new IllegalArgumentException("옳바르지 않은 파라미터");
-        }
-        // 도메인(라벨) 체크
-        if (isNewDomain && !isValidLabel(subDomain, isAdmin)) {
-            throw new IllegalArgumentException("옳바르지 않은 서브 도메인");
-        }
-
-        String lockKey = LOCK_KEY_PREFIX + fullDomain;
-        String lockValue = lockService.lock(lockKey);
+        // 1. 사용자 단위 락 획득 (사용자당 동시 요청 제어 - 최대 개수 초과 방지)
+        String memberLockKey = LOCK_KEY_PREFIX + "member:" + memberId;
+        String memberLockValue = lockService.lock(memberLockKey);
 
         try {
-            // 날짜 설정
-            LocalDate expiryDate;
-            // 신규 도메인은 6개월 or zone 최대 유효 날짜
-            if (isNewDomain) {
-                if (isAdmin) {
-                    expiryDate = LocalDate.now().plusYears(999);
-                } else {
-                    LocalDate maximumDomainDate = expirationDomainDateService.getDomainExpiryDate(zone),
-                              plus6Month = LocalDate.now().plusMonths(6);
+            // 2. 도메인 단위 락 획득 (동일 도메인에 대한 동시 요청 제어 - 하이재킹 및 데이터 불일치 방지)
+            String domainLockKey = LOCK_KEY_PREFIX + fullDomain;
+            String domainLockValue = lockService.lock(domainLockKey);
 
-                    expiryDate = plus6Month.isBefore(maximumDomainDate) ? plus6Month : maximumDomainDate;
+            try {
+                Set<String> existingRecordTypes = this.getAllRecordTypes(fullDomain);
+
+                boolean isAdmin         = checkAdminService.isAdmin(memberId),
+                        isNewDomain     = existingRecordTypes.isEmpty(),
+                        isContentUpdate = existingRecordTypes.contains(type),
+                        coexistCNAMEAndOtherType    // isTypeCNAME XOR alreadyCNAME
+                                        = type.equals("CNAME") ^ existingRecordTypes.contains("CNAME");
+
+                // 도메인 소유주 체크
+                if (!isNewDomain && !haveSubDomainService.isOwnerOfDomain(member, fullDomain)) {
+                    throw new SecurityException("보유 도메인이 아님에도 수정하려는 절차가 진행중임");
                 }
-            } else {
-                // 신규 도메인은 아니고 타입만 추가
-                expiryDate = haveSubDomainService.getExpiryDate(member, fullDomain);
-            }
+                // 최대 레코드수 체크 (새로운 도메인을 추가할 때만 체크)
+                if (!isAdmin && isNewDomain && !isNotOverMaxRecords(member)) {
+                    throw new IllegalStateException("최대 레코드 수 초과");
+                }
+                // 파라미터 체크 (
+                if (!isValidArguments(zone, subDomain, type, content, isAdmin)) {
+                    throw new IllegalArgumentException("옳바르지 않은 파라미터");
+                }
+                // 도메인(라벨) 체크
+                if (isNewDomain && !isValidLabel(subDomain, isAdmin)) {
+                    throw new IllegalArgumentException("옳바르지 않은 서브 도메인");
+                }
 
-            // CNAME 레코드는 단독으로만 존재 가능 -> 기존 도메인 지우기
-            if (coexistCNAMEAndOtherType) {
-                this.deleteSubRecords(haveSubDomainService.getMemberSubDomainsByFullDomain(member, fullDomain));
-            }
+                // 날짜 설정
+                LocalDate expiryDate;
+                // 신규 도메인은 6개월 or zone 최대 유효 날짜
+                if (isNewDomain) {
+                    if (isAdmin) {
+                        expiryDate = LocalDate.now().plusYears(999);
+                    } else {
+                        LocalDate maximumDomainDate = expirationDomainDateService.getDomainExpiryDate(zone),
+                                  plus6Month = LocalDate.now().plusMonths(6);
 
-            // Entity 등록 or 상태 수정
-            // 동일 타입 업데이트 아니면 다 새로 생성임
-            HaveSubDomain haveSubDomain;
-            if (isContentUpdate) {
-                haveSubDomain = haveSubDomainService.getHaveSubDomainByDetailInfo(member, fullDomain, type);
-                haveSubDomainService.updateContentAndSetPending(haveSubDomain, content);
-            } else {
-                haveSubDomain = haveSubDomainService.newHaveSubDomain(member, fullDomain, type, content, expiryDate); // 여기서 ADD_PENDING 으로 설정함
-            }
+                        expiryDate = plus6Month.isBefore(maximumDomainDate) ? plus6Month : maximumDomainDate;
+                    }
+                } else {
+                    // 신규 도메인은 아니고 타입만 추가
+                    expiryDate = haveSubDomainService.getExpiryDate(member, fullDomain);
+                }
 
-            // PDNS 반영
-            List<HaveSubDomain> successSubDomains = this.actionSubRecordsInPDNS(List.of(haveSubDomain), Action.REPLACE);
+                // CNAME 레코드는 단독으로만 존재 가능 -> 기존 도메인 지우기
+                if (coexistCNAMEAndOtherType) {
+                    this.deleteSubRecords(haveSubDomainService.getMemberSubDomainsByFullDomain(member, fullDomain));
+                }
 
-            // db 상태 수정
-            if (!successSubDomains.isEmpty()) {
-                haveSubDomainService.setStatusActivity(haveSubDomain);
+                // Entity 등록 or 상태 수정
+                // 동일 타입 업데이트 아니면 다 새로 생성임
+                HaveSubDomain haveSubDomain;
+                if (isContentUpdate) {
+                    haveSubDomain = haveSubDomainService.getHaveSubDomainByDetailInfo(member, fullDomain, type);
+                    haveSubDomainService.updateContentAndSetPending(haveSubDomain, content);
+                } else {
+                    haveSubDomain = haveSubDomainService.newHaveSubDomain(member, fullDomain, type, content, expiryDate); // 여기서 ADD_PENDING 으로 설정함
+                }
+
+                // PDNS 반영
+                List<HaveSubDomain> successSubDomains = this.actionSubRecordsInPDNS(List.of(haveSubDomain), Action.REPLACE);
+
+                // db 상태 수정
+                if (!successSubDomains.isEmpty()) {
+                    haveSubDomainService.setStatusActivity(haveSubDomain);
+                }
+            } finally {
+                lockService.unlock(domainLockKey, domainLockValue);
             }
         } finally {
-            lockService.unlock(lockKey, lockValue);
+            lockService.unlock(memberLockKey, memberLockValue);
         }
     }
 
@@ -202,6 +237,12 @@ public class PDNSService {
             List<HaveSubDomain> canProcessHaveSubDomains = new ArrayList<>();
             for (HaveSubDomain haveSubDomain : haveSubDomains) {
                 String key = LOCK_KEY_PREFIX + haveSubDomain.getFullDomain();
+                if (keyAndValues.containsKey(key)) {
+                    // 이미 이번 배치에서 해당 도메인에 대한 락을 획득했으므로 그대로 통과
+                    canProcessHaveSubDomains.add(haveSubDomain);
+                    continue;
+                }
+                
                 String value;
                 try {
                     value = lockService.lock(key);
@@ -235,11 +276,11 @@ public class PDNSService {
      * 레코드 삭제 (내부용)
      * @param haveSubDomains
      */
-    public void deleteSubRecords(List<HaveSubDomain> haveSubDomains) {
+    public List<HaveSubDomain> deleteSubRecords(List<HaveSubDomain> haveSubDomains) {
         haveSubDomainService.setDeletePending(haveSubDomains);
-
         List<HaveSubDomain> deleteSuccess = this.actionSubRecordsInPDNS(haveSubDomains, Action.DELETE);
         haveSubDomainService.deleteSubDomains(deleteSuccess);
+        return deleteSuccess;
     }
 
     public void deleteSubRecordsByMemberId(Long memberId) {
@@ -273,7 +314,7 @@ public class PDNSService {
                 .toBodilessEntity();
         
         log.info("존 생성 완료: {}", zoneName);
-        this.cachedZoneNames = this.getZoneNamesSet(); // 캐시 갱신
+        this.refreshZones(true);
     }
 
     /**
@@ -287,6 +328,7 @@ public class PDNSService {
                 .retrieve()
                 .toBodilessEntity();
         log.info("존 삭제 완료: {}", zoneName);
+        this.refreshZones(true);
     }
 
     /**
@@ -332,7 +374,7 @@ public class PDNSService {
             try {
                 patchModifyRecord(zoneRrsetsMap.get(zone), zone);
             } catch (Exception e) {
-                log.error("존 {} 에 대한 레코드 {} 중 {} 작업 실패", zone, zoneRrsetsMap.get(zone).size(), action.name(), e);
+                log.error("존 {} 에 대한 레코드 {} 중 {} 작업 실패: {}", zone, zoneRrsetsMap.get(zone).size(), action.name(), e.toString());
                 continue;
             }
             successSubDomains.addAll(zoneSubDomainsMap.get(zone));
@@ -352,6 +394,10 @@ public class PDNSService {
                 .body(Map.of("rrsets", rrsets))
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    if (res.getStatusCode() == HttpStatus.NOT_FOUND) {
+                        log.warn("{} 구역의 {} 데이터는 이미 삭제되었지만 요청이 들어옴", zone, rrsets.toString());
+                        return;
+                    }
                     throw new IllegalStateException("PowerDNS API 통신 중 에러 발생");
                 })
                 .body(Void.class);
@@ -469,21 +515,24 @@ public class PDNSService {
         return new String[] {subDomain, zone};
     }
 
-    private Set<PDNSDto.ZoneName> getZoneNamesSet() {
+    private Set<PDNSDto.ZoneName> getRefreshZoneNamesSet() {
         Set<PDNSDto.ZoneName> zones = restClient.get()
                 .uri("zones")
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
 
+        if (zones == null || zones.isEmpty()) {
+            throw new RuntimeException("갱신하고자 받은 zones가 비어있습니다");
+        }
+
         // PowerDNS API에서 Zone 정보 가져오면 마지막 문자가 . 으로 끝남
-        if (zones != null) {
-            for (PDNSDto.ZoneName zone : zones) {
-                String name = zone.getName();
-                if (name.endsWith(".")) {
-                    zone.setName(name.substring(0, name.length() - 1));
-                }
+        for (PDNSDto.ZoneName zone : zones) {
+            String name = zone.getName();
+            if (name.endsWith(".")) {
+                zone.setName(name.substring(0, name.length() - 1));
             }
         }
+
         return zones;
     }
 

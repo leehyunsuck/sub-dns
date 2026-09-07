@@ -5,7 +5,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import top.nulldns.subdns.dao.Member;
 import top.nulldns.subdns.dto.HaveDomainsDto;
 import top.nulldns.subdns.dto.PDNSDto;
@@ -17,7 +24,11 @@ import top.nulldns.subdns.service.facade.PDNSService;
 import top.nulldns.subdns.service.domain.MemberService;
 import top.nulldns.subdns.util.PDNSRecordValidator;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Set;
 
 @RestController
 @RequiredArgsConstructor
@@ -61,7 +72,7 @@ public class PDNSRestController {
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception e) {
-            log.error("서브도메인 삭제 요청 중 에러 발생", e);
+            log.error("서브도메인 삭제 요청 중 에러 발생: {}", e.toString());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
 

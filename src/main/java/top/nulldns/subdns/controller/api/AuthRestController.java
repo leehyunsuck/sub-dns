@@ -5,7 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import top.nulldns.subdns.dto.IdDto;
 import top.nulldns.subdns.service.facade.AuthService;
 
@@ -33,7 +36,7 @@ public class AuthRestController {
         try {
             authService.deleteUserAndData(memberId);
         } catch (Exception e) {
-            log.error("회원 탈퇴 중 오류 발생", e);
+            log.error("회원 탈퇴 중 오류 발생: {}", e.toString());
             log.error("탈퇴 시도한 회원 ID: {}", memberId);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }

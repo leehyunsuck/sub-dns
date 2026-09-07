@@ -111,7 +111,7 @@ public class HaveSubDomainService {
     }
 
     public List<HaveSubDomain> getAvailableSubDomains(Status status) {
-        return haveSubDomainRepository.findByDomainStatusAndExpiryDateAfter(status, LocalDate.now());
+        return haveSubDomainRepository.findByDomainStatus(status);
     }
 
     public List<HaveSubDomain> getMemberSubDomains(Member member) {
@@ -130,7 +130,7 @@ public class HaveSubDomainService {
     }
 
     public List<HaveSubDomain> getExpiredSubDomains(LocalDate date, int limit) {
-        return haveSubDomainRepository.findExpired(date, Status.ACTIVE, PageRequest.of(0, limit));
+        return haveSubDomainRepository.findExpired(date, PageRequest.of(0, limit));
     }
 
     public List<SubDomainDto> getSubDomainDTOs(String fullDomain) {
@@ -156,17 +156,23 @@ public class HaveSubDomainService {
 
     public void transferOwnership(String fullDomain, Member newOwner) {
         List<HaveSubDomain> subDomains = haveSubDomainRepository.findByFullDomain(fullDomain);
+
+        List<HaveSubDomain> updatedSubDomains = new ArrayList<>();
         for (HaveSubDomain subDomain : subDomains) {
-            haveSubDomainRepository.save(HaveSubDomain.builder()
-                    .id(subDomain.getId())
-                    .member(newOwner)
-                    .fullDomain(subDomain.getFullDomain())
-                    .recordType(subDomain.getRecordType())
-                    .content(subDomain.getContent())
-                    .expiryDate(subDomain.getExpiryDate())
-                    .domainStatus(subDomain.getDomainStatus())
-                    .build());
+            updatedSubDomains.add(
+                    HaveSubDomain.builder()
+                            .id(subDomain.getId())
+                            .member(newOwner)
+                            .fullDomain(subDomain.getFullDomain())
+                            .recordType(subDomain.getRecordType())
+                            .content(subDomain.getContent())
+                            .expiryDate(subDomain.getExpiryDate())
+                            .domainStatus(subDomain.getDomainStatus())
+                            .build()
+            );
         }
+
+        haveSubDomainRepository.saveAll(updatedSubDomains);
     }
 
     public long getTotalDomainCount() {

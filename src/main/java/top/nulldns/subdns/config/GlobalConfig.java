@@ -2,7 +2,6 @@ package top.nulldns.subdns.config;
 
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import top.nulldns.subdns.service.domain.CheckAdminService;

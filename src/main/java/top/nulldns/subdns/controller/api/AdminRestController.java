@@ -1,15 +1,17 @@
 package top.nulldns.subdns.controller.api;
 
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import top.nulldns.subdns.dao.HaveSubDomain;
-import top.nulldns.subdns.dao.Member;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import top.nulldns.subdns.service.facade.AdminService;
-import top.nulldns.subdns.service.domain.CheckAdminService;
 
 import java.util.List;
 import java.util.Map;
@@ -99,6 +101,8 @@ public class AdminRestController {
     @PostMapping("/deleteZone/{zone}/{code}")
     public ResponseEntity<Void> deleteZone(@PathVariable String zone, @PathVariable String code) {
         // 간단한 검증 (실제론 code 검증 로직 추가 필요)
+        // admin 으로 보내는 mail
+
         if (!"DELETE".equals(code)) return ResponseEntity.badRequest().build();
 
         try {
@@ -106,7 +110,7 @@ public class AdminRestController {
                 return ResponseEntity.ok().build();
             }
         } catch (Exception e) {
-            log.error("Error deleting zone and subdomains for zone {}: {}", zone, e.getMessage());
+            log.error("{} ZONE 삭제 도중 에러 발생: {}", zone, e.toString());
         }
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

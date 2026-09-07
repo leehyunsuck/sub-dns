@@ -2,28 +2,31 @@ package top.nulldns.subdns.service.facade;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import top.nulldns.subdns.dao.HaveSubDomain;
 import top.nulldns.subdns.dao.Member;
+import top.nulldns.subdns.dto.AdminDomainDto;
+import top.nulldns.subdns.dto.AdminMemberDto;
+import top.nulldns.subdns.repository.HaveSubDomainRepository;
 import top.nulldns.subdns.service.domain.HaveSubDomainService;
 import top.nulldns.subdns.service.domain.MemberService;
 
+import java.time.LocalDate;
 import java.util.*;
-
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import top.nulldns.subdns.dto.AdminDomainDto;
-import top.nulldns.subdns.dto.AdminMemberDto;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class AdminService {
     private final HaveSubDomainService haveSubDomainService;
     private final MemberService memberService;
     private final PDNSService pdnsService;
-    private final top.nulldns.subdns.repository.HaveSubDomainRepository haveSubDomainRepository;
+    private final HaveSubDomainRepository haveSubDomainRepository;
+    private final top.nulldns.subdns.service.infra.LockService lockService;
 
     // --- 통계 ---
     public Map<String, Object> getStatistics() {
@@ -64,16 +67,17 @@ public class AdminService {
                 .toList();
     }
 
+    @Transactional
     public void setMemberBanned(Long memberId, boolean banned) {
         memberService.setBanned(memberId, banned);
     }
 
+    @Transactional
     public void updateMemberMaxRecords(Long memberId, int maxRecords) {
         memberService.updateMaxRecords(memberId, maxRecords);
     }
 
     // --- 도메인 관리 ---
-    @Transactional(readOnly = true)
     public Page<AdminDomainDto> searchDomainsPaged(String query, Pageable pageable) {
         Page<HaveSubDomain> domains;
         if (query == null || query.isBlank()) {
@@ -94,7 +98,6 @@ public class AdminService {
         ));
     }
 
-    @Transactional(readOnly = true)
     public List<AdminDomainDto> getDomainsByMember(Long memberId) {
         return haveSubDomainRepository.findByMemberId(memberId).stream()
                 .map(d -> new AdminDomainDto(
@@ -111,7 +114,7 @@ public class AdminService {
     }
 
     @Transactional
-    public void updateExpiryDate(Long domainId, java.time.LocalDate newExpiryDate) {
+    public void updateExpiryDate(Long domainId, LocalDate newExpiryDate) {
         HaveSubDomain domain = haveSubDomainRepository.findById(domainId)
                 .orElseThrow(() -> new NoSuchElementException("존재하지 않는 도메인입니다."));
         
@@ -126,7 +129,6 @@ public class AdminService {
                 .build());
     }
 
-    @Transactional(readOnly = true)
     public List<AdminDomainDto> searchDomains(String query) {
         List<HaveSubDomain> domains;
         if (query == null || query.isBlank()) {
@@ -149,18 +151,32 @@ public class AdminService {
                 .toList();
     }
 
+    @Transactional
     public void transferDomainOwnership(String fullDomain, Long newMemberId) {
-        Member newOwner = memberService.getMemberById(newMemberId);
-        haveSubDomainService.transferOwnership(fullDomain, newOwner);
+        String lockKey = "pdns:" + fullDomain;
+        String lockValue = lockService.lock(lockKey);
+        try {
+            Member newOwner = memberService.getMemberById(newMemberId);
+            haveSubDomainService.transferOwnership(fullDomain, newOwner);
+        } finally {
+            lockService.unlock(lockKey, lockValue);
+        }
     }
 
+    @Transactional
     public void deleteDomainForce(String fullDomain) {
-        List<HaveSubDomain> subDomains = haveSubDomainService.getSubDomainDTOs(fullDomain).stream()
-                .map(dto -> haveSubDomainService.getHaveSubDomainByDetailInfo(null, fullDomain, dto.type())) // member 무시하고 찾기 위해 repository 수정 필요할 수도 있음
-                .toList();
-        // 실제로는 findByFullDomain 사용
-        List<HaveSubDomain> targets = haveSubDomainService.getMemberSubDomainsByFullDomain(null, fullDomain);
-        pdnsService.deleteSubRecords(targets);
+        String lockKey = "pdns:" + fullDomain;
+        String lockValue = lockService.lock(lockKey);
+        try {
+            List<HaveSubDomain> subDomains = haveSubDomainService.getSubDomainDTOs(fullDomain).stream()
+                    .map(dto -> haveSubDomainService.getHaveSubDomainByDetailInfo(null, fullDomain, dto.type())) // member 무시하고 찾기 위해 repository 수정 필요할 수도 있음
+                    .toList();
+            // 실제로는 findByFullDomain 사용
+            List<HaveSubDomain> targets = haveSubDomainService.getMemberSubDomainsByFullDomain(null, fullDomain);
+            pdnsService.deleteSubRecords(targets);
+        } finally {
+            lockService.unlock(lockKey, lockValue);
+        }
     }
 
     // --- 존 관리 ---

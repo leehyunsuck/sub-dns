@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -33,10 +34,11 @@ public class LockService {
     }
 
     public void unlock(String key, String value) {
-        String lockedValue = redisTemplate.opsForValue().get(LOCK_KEY_PREFIX + key);
-
-        if (value.equals(lockedValue)) {
-            redisTemplate.delete(LOCK_KEY_PREFIX + key);
-        }
+        String script = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+        redisTemplate.execute(
+                new DefaultRedisScript<>(script, Long.class),
+                java.util.Collections.singletonList(LOCK_KEY_PREFIX + key),
+                value
+        );
     }
 }

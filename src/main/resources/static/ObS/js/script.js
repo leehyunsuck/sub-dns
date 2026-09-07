@@ -2,6 +2,20 @@ let recordMap = {};
 let selectedDomain = '';
 let selectedZone = '';
 
+function getCsrfToken() {
+  const match = document.cookie.match(new RegExp('(^| )XSRF-TOKEN=([^;]+)'));
+  return match ? decodeURIComponent(match[2]) : '';
+}
+
+const originalFetch = window.fetch;
+window.fetch = async function(resource, config) {
+  if (config && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(config.method ? config.method.toUpperCase() : '')) {
+    config.headers = config.headers || {};
+    config.headers['X-XSRF-TOKEN'] = getCsrfToken();
+  }
+  return originalFetch(resource, config);
+};
+
 // 도메인 검색
 async function searchDomain() {
   const subDomainInput = document.getElementById('searchInput');

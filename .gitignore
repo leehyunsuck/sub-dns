@@ -46,6 +46,7 @@ out/
 .agents/
 Gemini.md
 AGENTS.md
+brain.md
 
 ### custom ###
 RunUser.txt

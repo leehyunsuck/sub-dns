@@ -299,7 +299,7 @@ public class PDNSService {
 
         Map<String, Object> body = Map.of(
                 "name", zoneName,
-                "kind", "Native",
+                "kind", "Master",
                 "nameservers", List.of()
         );
 
@@ -373,6 +373,7 @@ public class PDNSService {
         for (String zone : zoneRrsetsMap.keySet()) {
             try {
                 patchModifyRecord(zoneRrsetsMap.get(zone), zone);
+                notifyZone(zone);
             } catch (Exception e) {
                 log.error("존 {} 에 대한 레코드 {} 중 {} 작업 실패: {}", zone, zoneRrsetsMap.get(zone).size(), action.name(), e.toString());
                 continue;
@@ -561,5 +562,14 @@ public class PDNSService {
         }
 
         return recordTypes;
+    }
+
+    private void notifyZone(String zone) {
+        restClient.put().uri("/zones/{zone}./notify", zone)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, (req, res) -> {
+                    log.error("{} 구역 NOTIFY 전송 실패: {}", zone, res.getStatusCode());
+                })
+                .toBodilessEntity();
     }
 }

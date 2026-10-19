@@ -261,24 +261,62 @@ p.msg {
   font-weight: 500;
 }
 
-/* === GitHub Login Button === */
-#githubLoginBtn {
-  background-color: #24292e;
-  color: #fff;
-  border: none;
-  padding: 0.8rem 1.4rem;
+/* === Social Login Button Group === */
+.login-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 1.5rem;
+}
+
+/* 공통 소셜 버튼 규격 (가로 폭, 세로 높이, 정렬 완전 일치) */
+.btn-social {
+  width: 100%;
+  max-width: 280px;
+  height: 48px;
+  padding: 0 1.2rem;
   font-size: 0.95rem;
+  font-weight: 500;
+  border-radius: 10px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  border-radius: 10px;
-  transition: background 0.2s, box-shadow 0.2s;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.2s, background-color 0.2s;
 }
 
+/* 공통 아이콘 규격 (20x20 크기, 우측 여백 10px) */
+.social-icon, .github-icon, .google-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* GitHub 버튼 테마 (투명 1px 테두리로 구글과 1px 오차까지 일치) */
+#githubLoginBtn {
+  background-color: #24292e;
+  color: #ffffff;
+  border: 1px solid transparent;
+}
 #githubLoginBtn:hover {
   background-color: #3a3f45;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Google 버튼 테마 (공식 가이드 준수) */
+#googleLoginBtn {
+  background-color: #ffffff;
+  color: #3c4043;
+  border: 1px solid #dadce0;
+}
+#googleLoginBtn:hover {
+  background-color: #f8fafd;
+  border-color: #c2e7ff;
+  box-shadow: 0 4px 12px rgba(60, 64, 67, 0.15);
 }
 
 /* === Service Info (main 규격과 동일) === */
@@ -497,11 +535,6 @@ p.msg {
   padding-top: 8px;
 }
 
-.github-icon {
-  height: 20px;
-  vertical-align: middle;
-  margin-right: 8px;
-}
 
 /* === Mobile Menu Button === */
 .mobile-menu-btn {

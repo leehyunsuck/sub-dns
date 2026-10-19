@@ -16,10 +16,17 @@
             <p>오로직 소셜 로그인 플랫폼 명칭과 고유번호만 저장합니다.</p>
         </div>
 
-        <button id="githubLoginBtn" onclick="loginWithGitHub()">
-            <img id="githubIcon" class="github-icon" src="../static/ObS/assets/github-mark.svg" th:src="|${staticUrl}assets/github-mark.svg|" alt="GitHub Logo">
-            GitHub 계정으로 로그인
-        </button>
+        <div class="login-btn-group">
+            <button id="githubLoginBtn" class="btn-social" onclick="loginWithGitHub()">
+                <img id="githubIcon" class="social-icon github-icon" src="../static/ObS/assets/github-mark.svg" th:src="|${staticUrl}assets/github-mark.svg|" alt="GitHub Logo">
+                GitHub 계정으로 로그인
+            </button>
+
+            <button id="googleLoginBtn" class="btn-social" onclick="loginWithGoogle()">
+                <img id="googleIcon" class="social-icon google-icon" src="../static/ObS/assets/google-mark.svg" th:src="|${staticUrl}assets/google-mark.svg|" alt="Google Logo">
+                Google 계정으로 로그인
+            </button>
+        </div>
 
 
     </main>

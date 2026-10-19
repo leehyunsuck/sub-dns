@@ -188,6 +188,17 @@ function loginWithGitHub() {
   window.location.href = "/oauth2/authorization/github";
 }
 
+function loginWithGoogle() {
+  const agreeCheckbox = document.getElementById('agree');
+
+  if (agreeCheckbox && !agreeCheckbox.checked) {
+    alert("이용약관에 동의해야 로그인이 가능합니다.");
+    return;
+  }
+
+  window.location.href = "/oauth2/authorization/google";
+}
+
 // 도메인 불러오기
 async function loadUserDomains() {
   const listDiv = document.getElementById('domainList');
